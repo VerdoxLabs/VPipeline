@@ -1,6 +1,6 @@
 package de.verdox.vpipeline.impl.messaging.message;
 
-import de.verdox.vpipeline.api.messaging.message.IMessage;
+import de.verdox.vpipeline.api.messaging.message.Message;
 import de.verdox.vpipeline.impl.messaging.MessageBuilder;
 import org.jetbrains.annotations.NotNull;
 
@@ -17,7 +17,7 @@ public class SimpleMessageBuilder extends MessageBuilder {
     }
 
     @Override
-    public IMessage constructMessage() {
+    public Message constructMessage() {
         return new SimpleMessage(sender, senderIdentifier, parameters, dataToSend);
     }
 }

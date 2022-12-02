@@ -1,8 +1,10 @@
 package de.verdox.vpipeline.impl.messaging;
 
-import de.verdox.vpipeline.api.messaging.message.IMessage;
+import de.verdox.vpipeline.api.messaging.message.Message;
 import de.verdox.vpipeline.impl.messaging.message.SimpleMessage;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -13,6 +15,8 @@ import java.util.UUID;
  * @date 18.06.2022 23:00
  */
 public class MessageBuilder {
+
+
     protected final UUID sender;
     protected final String senderIdentifier;
     protected String[] parameters;
@@ -35,7 +39,7 @@ public class MessageBuilder {
         return this;
     }
 
-    public IMessage constructMessage() {
+    public Message constructMessage() {
         return new SimpleMessage(sender, senderIdentifier, parameters, dataToSend);
     }
 }

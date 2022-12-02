@@ -1,8 +1,8 @@
 package de.verdox.vpipeline.api.messaging.instruction.types;
 
 import de.verdox.vpipeline.api.messaging.annotations.InstructionInfo;
-import de.verdox.vpipeline.api.messaging.instruction.IResponder;
-import de.verdox.vpipeline.api.messaging.instruction.Instruction;
+import de.verdox.vpipeline.api.messaging.instruction.Responder;
+import de.verdox.vpipeline.api.messaging.instruction.SimpleInstruction;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
@@ -14,21 +14,28 @@ import java.util.concurrent.CompletableFuture;
  * @date 22.06.2022 21:15
  */
 
+/**
+ * Instruction to query data remotely.
+ *
+ * @param <T> The data that is queried.
+ */
 @InstructionInfo(awaitsResponse = true)
-public abstract class Query<T> extends Instruction<T> implements IResponder {
-    private final CompletableFuture<T> future = new CompletableFuture<>();
+public abstract class Query<T> extends SimpleInstruction<T> implements Responder {
+    private final FutureResponse<T> future = new FutureResponse<>();
 
     public Query(@NotNull UUID uuid) {
         super(uuid);
     }
 
+    protected abstract T interpretResponse(Object[] responseData);
+
     @Override
-    public boolean onSend(Object[] instructionData) {
-        return true;
+    public final void onQueryAnswerReceive(Object[] instructionData, Object[] responseData) {
+        future.complete(interpretResponse(responseData));
     }
 
     @Override
-    public CompletableFuture<T> getFuture() {
+    public FutureResponse<T> getFuture() {
         return future;
     }
 }

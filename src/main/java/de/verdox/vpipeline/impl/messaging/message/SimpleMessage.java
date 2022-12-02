@@ -1,6 +1,7 @@
 package de.verdox.vpipeline.impl.messaging.message;
 
-import de.verdox.vpipeline.api.messaging.message.IMessage;
+import de.verdox.vpipeline.api.messaging.message.Message;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
@@ -10,14 +11,14 @@ import java.util.UUID;
  * @date 19.06.2022 12:48
  */
 public record SimpleMessage(UUID sender, String senderIdentifier,
-                            String[] parameters, Object[] dataToSend) implements IMessage {
+                            String[] parameters, Object[] dataToSend) implements Message {
     @Override
-    public UUID getSender() {
+    public @NotNull UUID getSender() {
         return sender;
     }
 
     @Override
-    public String getSenderIdentifier() {
+    public @NotNull String getSenderIdentifier() {
         return senderIdentifier;
     }
 

@@ -19,6 +19,7 @@ public interface IPipelineData {
      * @param dataBeforeSync The data the object had before syncing
      */
     default void onSync(String dataBeforeSync) {
+
     }
 
     /**
@@ -68,7 +69,7 @@ public interface IPipelineData {
      */
     String deserialize(JsonElement jsonObject);
 
-    ISynchronizer getSynchronizer();
+    Synchronizer getSynchronizer();
 
     void markRemoval();
     boolean isMarkedForRemoval();

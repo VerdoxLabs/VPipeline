@@ -1,5 +1,6 @@
 package de.verdox.vpipeline.impl.util;
 
+import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import org.jetbrains.annotations.NotNull;
@@ -18,7 +19,7 @@ import java.util.Objects;
  * @Author: Lukas Jonsson (Verdox)
  * @date 18.06.2022 15:42
  */
-public class RedisConnection {
+public class RedisConnection implements SystemPart {
     protected final RedissonClient redissonClient;
 
     public RedisConnection(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
@@ -53,5 +54,10 @@ public class RedisConnection {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         String key = prefix + "DataTopic:" + AnnotationResolver.getDataStorageClassifier(dataClass) + "_" + AnnotationResolver.getDataStorageIdentifier(dataClass);
         return redissonClient.getTopic(key, new SerializationCodec());
+    }
+
+    @Override
+    public void shutdown() {
+        this.redissonClient.shutdown();
     }
 }

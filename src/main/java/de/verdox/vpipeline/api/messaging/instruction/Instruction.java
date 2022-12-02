@@ -1,65 +1,44 @@
 package de.verdox.vpipeline.api.messaging.instruction;
 
-import org.jetbrains.annotations.NotNull;
+import de.verdox.vpipeline.api.NetworkParticipant;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 23:16
- */
-public abstract class Instruction<T> implements IInstruction<T>{
 
-    private final UUID uuid;
-    private final String[] parameters;
-    private final List<Class<?>> types;
-    private final long creationTimeStamp;
-    private Object[] data;
+public interface Instruction<T> extends Sender<T> {
+    Instruction<T> withData(Object... data);
 
-    public Instruction(@NotNull UUID uuid){
-        Objects.requireNonNull(uuid, "uuid can't be null!");
-        this.uuid = uuid;
-        this.parameters = parameters().toArray(String[]::new);
-        this.types = dataTypes();
-        this.creationTimeStamp = System.currentTimeMillis();
-    }
+    UUID getUUID();
 
-    @Override
-    public IInstruction<T> withData(Object... data) {
-        if (data.length != types.size())
-            throw new IllegalStateException("Wrong Input Parameter Length for " + getClass().getSimpleName() + " [" + dataTypes().size() + "]");
-        for (int i = 0; i < types.size(); i++) {
-            Class<?> type = types.get(i);
-            Object datum = data[i];
-            if (!type.isAssignableFrom(datum.getClass()))
-                throw new IllegalStateException(datum + " is not type or subtype of " + type.getName());
+    /**
+     * Getter for API Users to fetch the runtime parameters of this specific instruction.
+     *
+     * @return Parameters as String Array. Normally this output should equal the parameters() output.
+     */
+    String[] getParameters();
 
-        }
-        this.data = data;
-        return this;
-    }
+    /**
+     * @return The data that will be sent with this instruction
+     */
+    Object[] getData();
 
-    @Override
-    public UUID getUUID() {
-        return uuid;
-    }
+    /**
+     * @return The timestamp when the instruction was created.
+     */
+    long getCreationTimeStamp();
 
-    @Override
-    public String[] getParameters() {
-        return parameters;
-    }
+    /**
+     * @return The list of data types that are accepted by this instruction.
+     */
+    List<Class<?>> instructionDataTypes();
 
-    @Override
-    public Object[] getData() {
-        return data;
-    }
+    /**
+     * This method defines the instructions parameters. Normally implemented by a class with constant parameters.
+     *
+     * @return The list of parameters to identify this instruction
+     */
+    List<String> instructionPath();
 
-    @Override
-    public long getCreationTimeStamp() {
-        return creationTimeStamp;
-    }
+    NetworkParticipant getCurrentClient();
 }

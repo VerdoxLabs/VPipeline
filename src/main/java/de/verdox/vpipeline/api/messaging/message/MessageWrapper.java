@@ -1,6 +1,6 @@
 package de.verdox.vpipeline.api.messaging.message;
 
-import de.verdox.vpipeline.api.messaging.IMessagingService;
+import de.verdox.vpipeline.api.messaging.MessagingService;
 
 import java.util.UUID;
 
@@ -9,14 +9,14 @@ import java.util.UUID;
  * @Author: Lukas Jonsson (Verdox)
  * @date 18.06.2022 23:01
  */
-public record MessageWrapper(IMessage message) {
+public record MessageWrapper(Message message) {
 
     public boolean isInstruction() {
-        return parameterContains(IMessagingService.INSTRUCTION_IDENTIFIER);
+        return parameterContains(MessagingService.INSTRUCTION_IDENTIFIER);
     }
 
     public boolean isResponse() {
-        return parameterContains(IMessagingService.RESPONSE_IDENTIFIER);
+        return parameterContains(MessagingService.RESPONSE_IDENTIFIER);
     }
 
     public UUID getSenderUUID() {
