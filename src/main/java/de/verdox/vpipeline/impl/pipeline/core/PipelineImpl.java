@@ -6,6 +6,7 @@ import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.pipeline.SynchronizedAccess;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
+import de.verdox.vpipeline.api.pipeline.core.PipelineLock;
 import de.verdox.vpipeline.api.pipeline.core.PipelineSynchronizer;
 import de.verdox.vpipeline.api.pipeline.datatypes.DataRegistry;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
@@ -28,6 +29,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 import java.util.stream.Collectors;
 
 public class PipelineImpl implements Pipeline {
@@ -105,7 +108,7 @@ public class PipelineImpl implements Pipeline {
     public @NotNull GsonBuilder getGsonBuilder() {
         return new GsonBuilder()
                 .serializeNulls()
-                .registerTypeAdapter(DataReference.class, new DataReference.ReferenceAdapter(this));
+                .registerTypeHierarchyAdapter(DataReference.class, new DataReference.ReferenceAdapter(this));
     }
 
 
@@ -122,46 +125,66 @@ public class PipelineImpl implements Pipeline {
     }
 
     @Override
-    public <T extends IPipelineData> @NotNull CompletableFuture<SynchronizedAccess<T>> load(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
+    public <T extends IPipelineData> @NotNull CompletableFuture<PipelineLock<T>> load(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
         Objects.requireNonNull(uuid, "uuid can't be null");
 
-        var future = new CompletableFuture<SynchronizedAccess<T>>();
-        executePipelineTask(future, () -> future.complete(new SynchronizedAccess<>(load(dataClass, uuid, false))));
+        var future = new CompletableFuture<PipelineLock<T>>();
+        executePipelineTask(future, () -> {
+            var pipelineLock = createPipelineLock(dataClass, uuid);
+            pipelineLock.runOnReadLock(() -> {
+                load(dataClass, uuid, false);
+                future.complete(createPipelineLock(dataClass, uuid));
+            });
+            return null;
+        });
         return future;
     }
 
     @Override
-    public @NotNull <T extends IPipelineData> CompletableFuture<SynchronizedAccess<T>> loadOrCreate(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
+    public @NotNull <T extends IPipelineData> CompletableFuture<PipelineLock<T>> loadOrCreate(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
         Objects.requireNonNull(uuid, "uuid can't be null");
 
-        var future = new CompletableFuture<SynchronizedAccess<T>>();
-        executePipelineTask(future, () -> future.complete(new SynchronizedAccess<>(load(dataClass, uuid, true))));
+        var future = new CompletableFuture<PipelineLock<T>>();
+        executePipelineTask(future, () -> {
+            createPipelineLock(dataClass, uuid).runOnWriteLock(() -> {
+                load(dataClass, uuid, true);
+                future.complete(createPipelineLock(dataClass, uuid));
+            });
+            return null;
+        });
         return future;
     }
 
     @Override
-    public @NotNull <T extends IPipelineData> CompletableFuture<Set<SynchronizedAccess<T>>> loadAllData(@NotNull Class<? extends T> dataClass) {
+    public @NotNull <T extends IPipelineData> CompletableFuture<Set<PipelineLock<T>>> loadAllData(@NotNull Class<? extends T> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
 
-        var future = new CompletableFuture<Set<SynchronizedAccess<T>>>();
+        var future = new CompletableFuture<Set<PipelineLock<T>>>();
         executePipelineTask(future, () -> {
             //Syncing data
             if (getGlobalStorage() != null) getGlobalStorage().getSavedUUIDs(dataClass).forEach(uuid -> {
-                if (!localCache.dataExist(dataClass, uuid))
-                    pipelineSynchronizer.synchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
+                var pipelineLock = createPipelineLock(dataClass, uuid);
+                pipelineLock.runOnWriteLock(() -> {
+                    if (!localCache.dataExist(dataClass, uuid))
+                        pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
+                });
+
             });
             if (getGlobalCache() != null) getGlobalCache().getSavedUUIDs(dataClass).forEach(uuid -> {
-                if (!localCache.dataExist(dataClass, uuid))
-                    pipelineSynchronizer.synchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
+                var pipelineLock = createPipelineLock(dataClass, uuid);
+                pipelineLock.runOnWriteLock(() -> {
+                    if (!localCache.dataExist(dataClass, uuid))
+                        pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
+                });
             });
-            future.complete(getLocalCache()
-                    .getSavedUUIDs(dataClass)
-                    .stream()
-                    .map(uuid -> new SynchronizedAccess<T>(getLocalCache().loadObject(dataClass, uuid)))
-                    .collect(Collectors.toSet()));
-            return null;
+
+            var set = new HashSet<PipelineLock<T>>();
+            for (UUID savedUUID : getLocalCache().getSavedUUIDs(dataClass))
+                set.add(createPipelineLock(dataClass, savedUUID));
+            future.complete(set);
+            return future;
         });
         return future;
     }
@@ -171,7 +194,12 @@ public class PipelineImpl implements Pipeline {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
         Objects.requireNonNull(uuid, "uuid can't be null");
         var future = new CompletableFuture<Boolean>();
-        executePipelineTask(future, () -> future.complete(checkExistence(dataClass, uuid)));
+        executePipelineTask(future, () -> {
+            createPipelineLock(dataClass, uuid).runOnReadLock(() -> {
+                future.complete(checkExistence(dataClass, uuid));
+            });
+            return null;
+        });
         return future;
     }
 
@@ -180,24 +208,26 @@ public class PipelineImpl implements Pipeline {
 
         var future = new CompletableFuture<Boolean>();
         executePipelineTask(future, () -> {
-            T data = getLocalCache().loadObject(dataClass, uuid);
+            createPipelineLock(dataClass, uuid).runOnWriteLock(() -> {
+                T data = getLocalCache().loadObject(dataClass, uuid);
 
-            if (data != null)
-                data.onDelete();
+                if (data != null)
+                    data.onDelete();
 
-            var deleted = getLocalCache().remove(dataClass, uuid);
-            if (data instanceof Synchronizer synchronizer) {
-                synchronizer.pushRemoval(data, () -> {
-                });
-                data.markRemoval();
-            }
+                var deleted = getLocalCache().remove(dataClass, uuid);
+                if (data instanceof Synchronizer synchronizer) {
+                    synchronizer.pushRemoval(data, () -> {
+                    });
+                    data.markRemoval();
+                }
 
-            if (getGlobalCache() != null && getGlobalCache().dataExist(dataClass, uuid))
-                deleted &= getGlobalCache().remove(dataClass, uuid);
-            if (getGlobalStorage() != null && getGlobalStorage().dataExist(dataClass, uuid))
-                deleted &= getGlobalStorage().remove(dataClass, uuid);
+                if (getGlobalCache() != null && getGlobalCache().dataExist(dataClass, uuid))
+                    deleted &= getGlobalCache().remove(dataClass, uuid);
+                if (getGlobalStorage() != null && getGlobalStorage().dataExist(dataClass, uuid))
+                    deleted &= getGlobalStorage().remove(dataClass, uuid);
 
-            future.complete(deleted);
+                future.complete(deleted);
+            });
             return null;
         });
         return future;
@@ -210,12 +240,12 @@ public class PipelineImpl implements Pipeline {
                 .getDataProperties(dataClass)
                 .dataContext()
                 .isStorageAllowed())
-            pipelineSynchronizer.synchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
+            pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
         else if (globalCache != null && globalCache.dataExist(dataClass, uuid) && AnnotationResolver
                 .getDataProperties(dataClass)
                 .dataContext()
                 .isCacheAllowed())
-            pipelineSynchronizer.synchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
+            pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
         else {
             if (!createIfNotExist)
                 return null;
@@ -246,8 +276,8 @@ public class PipelineImpl implements Pipeline {
 /*        if (data.isMarkedForRemoval())
             return;*/
         data.cleanUp();
-        pipelineSynchronizer.synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, type, uuid, null);
-        pipelineSynchronizer.synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, type, uuid, null);
+        pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, type, uuid, null);
+        pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, type, uuid, null);
         getLocalCache().remove(type, uuid);
     }
 
@@ -260,7 +290,7 @@ public class PipelineImpl implements Pipeline {
         Set<UUID> alreadyLoaded = new HashSet<>();
         if (globalCache != null && dataProperties.dataContext().isStorageAllowed())
             globalCache.getSavedUUIDs(type).forEach(uuid -> {
-                if (pipelineSynchronizer.synchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid, null))
+                if (pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid, null))
                     alreadyLoaded.add(uuid);
             });
         if (globalStorage != null && dataProperties.dataContext().isCacheAllowed())
@@ -268,7 +298,7 @@ public class PipelineImpl implements Pipeline {
                     .getSavedUUIDs(type)
                     .stream()
                     .filter(uuid -> !alreadyLoaded.contains(uuid))
-                    .forEach(uuid -> pipelineSynchronizer.synchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid, null));
+                    .forEach(uuid -> pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid, null));
     }
 
     private <T extends IPipelineData> T createNewData(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
@@ -283,9 +313,9 @@ public class PipelineImpl implements Pipeline {
         localCache.saveObject(pipelineData);
 
         if (AnnotationResolver.getDataProperties(dataClass).dataContext().isCacheAllowed())
-            pipelineSynchronizer.synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, dataClass, uuid);
+            pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, dataClass, uuid, null);
         if (AnnotationResolver.getDataProperties(dataClass).dataContext().isStorageAllowed())
-            pipelineSynchronizer.synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, dataClass, uuid);
+            pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, dataClass, uuid, null);
         return pipelineData;
     }
 
@@ -340,5 +370,61 @@ public class PipelineImpl implements Pipeline {
                     throw new RuntimeException(e);
                 }
             });
+    }
+
+    <T extends IPipelineData> PipelineLock<T> createPipelineLock(@NotNull T data) {
+        return (PipelineLock<T>) createPipelineLock(data.getClass(), data.getObjectUUID());
+    }
+
+
+    <T extends IPipelineData> @NotNull PipelineLock<T> createPipelineLock(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
+        Objects.requireNonNull(dataClass, "Dataclass can't be null");
+        Objects.requireNonNull(uuid, "UUID can't be null");
+
+        Lock readLock;
+        Lock writeLock;
+
+        if (getGlobalCache() != null) {
+            readLock = getGlobalCache().acquireGlobalObjectReadLock(dataClass, uuid);
+            writeLock = getGlobalCache().acquireGlobalObjectWriteLock(dataClass, uuid);
+        } else {
+            readLock = new DummyLock();
+            writeLock = new DummyLock();
+        }
+        return new PipelineLockImpl<>(this, dataClass, uuid, readLock, writeLock);
+    }
+
+    static class DummyLock implements Lock {
+
+        @Override
+        public void lock() {
+
+        }
+
+        @Override
+        public void lockInterruptibly() throws InterruptedException {
+
+        }
+
+        @Override
+        public boolean tryLock() {
+            return false;
+        }
+
+        @Override
+        public boolean tryLock(long time, @NotNull TimeUnit unit) throws InterruptedException {
+            return false;
+        }
+
+        @Override
+        public void unlock() {
+
+        }
+
+        @NotNull
+        @Override
+        public Condition newCondition() {
+            return null;
+        }
     }
 }

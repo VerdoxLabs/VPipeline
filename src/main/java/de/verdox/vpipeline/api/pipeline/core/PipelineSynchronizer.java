@@ -12,9 +12,9 @@ import java.util.UUID;
  */
 public interface PipelineSynchronizer extends SystemPart {
 
-    boolean synchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback);
-    default boolean synchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
-        return synchronize(source, destination, dataClass, objectUUID, null);
+    void synchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback);
+    default void synchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+        synchronize(source, destination, dataClass, objectUUID, null);
     }
 
     enum DataSourceType {

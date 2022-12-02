@@ -1,6 +1,7 @@
 package de.verdox.vpipeline.api.pipeline.datatypes;
 
 import com.google.gson.JsonElement;
+import de.verdox.vpipeline.api.modules.AttachedPipeline;
 
 import java.util.UUID;
 
@@ -75,4 +76,5 @@ public interface IPipelineData {
     boolean isMarkedForRemoval();
     void updateLastUsage();
     void save(boolean saveToStorage);
+    AttachedPipeline getAttachedPipeline();
 }

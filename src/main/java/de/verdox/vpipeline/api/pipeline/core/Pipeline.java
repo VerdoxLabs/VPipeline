@@ -16,6 +16,9 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 
 public interface Pipeline extends SystemPart {
     NetworkParticipant getNetworkParticipant();
@@ -42,11 +45,11 @@ public interface Pipeline extends SystemPart {
 
     void preloadAll();
 
-    @NotNull <T extends IPipelineData> CompletableFuture<SynchronizedAccess<T>> load(@NotNull Class<? extends T> type, @NotNull UUID uuid);
+    @NotNull <T extends IPipelineData> CompletableFuture<PipelineLock<T>> load(@NotNull Class<? extends T> type, @NotNull UUID uuid);
 
-    @NotNull <T extends IPipelineData> CompletableFuture<SynchronizedAccess<T>> loadOrCreate(@NotNull Class<? extends T> type, @NotNull UUID uuid);
+    @NotNull <T extends IPipelineData> CompletableFuture<PipelineLock<T>> loadOrCreate(@NotNull Class<? extends T> type, @NotNull UUID uuid);
 
-    @NotNull <T extends IPipelineData> CompletableFuture<Set<SynchronizedAccess<T>>> loadAllData(@NotNull Class<? extends T> type);
+    @NotNull <T extends IPipelineData> CompletableFuture<Set<PipelineLock<T>>> loadAllData(@NotNull Class<? extends T> type);
 
     <T extends IPipelineData> CompletableFuture<Boolean> exist(@NotNull Class<? extends T> type, @NotNull UUID uuid);
 

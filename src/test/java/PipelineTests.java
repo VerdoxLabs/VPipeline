@@ -35,7 +35,7 @@ public class PipelineTests {
     public static TestData testData;
 
     @BeforeAll
-    public static void setupPipeline() throws ExecutionException, InterruptedException {
+    public static void setupPipeline() {
         pipeline1 = VNetwork
                 .getConstructionService()
                 .createPipeline()

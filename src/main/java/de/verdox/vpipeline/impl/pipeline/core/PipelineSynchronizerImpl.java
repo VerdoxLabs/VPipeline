@@ -11,20 +11,30 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 11:37
- */
 public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements PipelineSynchronizer {
     @Override
-    public boolean synchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback) {
+    public void synchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback) {
         verifyInput(source, destination, dataClass, objectUUID);
+        pipeline
+                .getExecutorService()
+                .submit(() -> pipeline
+                        .createPipelineLock(dataClass, objectUUID)
+                        .runOnWriteLock(() -> doSynchronisation(source, destination, dataClass, objectUUID, callback)));
+    }
+
+    boolean doSynchronisation(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback) {
+
         if (source.equals(destination))
             return false;
-        if ((pipeline.getGlobalCache() == null || !AnnotationResolver.getDataProperties(dataClass).dataContext().isCacheAllowed()) && (source.equals(DataSourceType.GLOBAL_CACHE) || destination.equals(DataSourceType.GLOBAL_CACHE)))
+        if ((pipeline.getGlobalCache() == null || !AnnotationResolver
+                .getDataProperties(dataClass)
+                .dataContext()
+                .isCacheAllowed()) && (source.equals(DataSourceType.GLOBAL_CACHE) || destination.equals(DataSourceType.GLOBAL_CACHE)))
             return false;
-        if ((pipeline.getGlobalStorage() == null || !AnnotationResolver.getDataProperties(dataClass).dataContext().isStorageAllowed()) && (source.equals(DataSourceType.GLOBAL_STORAGE) || destination.equals(DataSourceType.GLOBAL_STORAGE)))
+        if ((pipeline.getGlobalStorage() == null || !AnnotationResolver
+                .getDataProperties(dataClass)
+                .dataContext()
+                .isStorageAllowed()) && (source.equals(DataSourceType.GLOBAL_STORAGE) || destination.equals(DataSourceType.GLOBAL_STORAGE)))
             return false;
 
         DataProvider sourceProvider = getProvider(source);

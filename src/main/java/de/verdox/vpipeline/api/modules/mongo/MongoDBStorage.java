@@ -10,11 +10,14 @@ import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vpipeline.api.pipeline.parts.RemoteStorage;
 import org.bson.Document;
+import org.bson.UuidRepresentation;
+import org.bson.types.ObjectId;
 import org.checkerframework.checker.units.qual.A;
 import org.jetbrains.annotations.NotNull;
 
@@ -57,7 +60,7 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
 
 
     @Override
-    public JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public synchronized JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
         Document filter = new Document("objectUUID", objectUUID.toString());
@@ -72,7 +75,7 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
     }
 
     @Override
-    public boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public synchronized boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
         Document document = getMongoStorage(dataClass, getSuffix(dataClass))
@@ -82,7 +85,7 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
     }
 
     @Override
-    public void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
+    public synchronized void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
         Objects.requireNonNull(dataToSave, "dataToSave can't be null!");
@@ -102,17 +105,24 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
     }
 
     @Override
-    public boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public synchronized boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
         Document filter = new Document("objectUUID", objectUUID.toString());
 
+        if(!dataExist(dataClass,objectUUID))
+            return true;
+
         MongoCollection<Document> collection = getMongoStorage(dataClass, getSuffix(dataClass));
-        return collection.deleteOne(filter).getDeletedCount() >= 1;
+
+        var result = collection.deleteOne(filter).getDeletedCount() >= 1;
+        if(!result)
+            NetworkLogger.getLogger().warning("Could not delete data from MongoDB");
+        return result;
     }
 
     @Override
-    public Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
+    public synchronized Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         MongoCollection<Document> collection = getMongoStorage(dataClass, getSuffix(dataClass));
         Set<UUID> uuids = new HashSet<>();
@@ -150,10 +160,13 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
 
     @Override
     public void connect() {
+
+        var clientOptions = new MongoClientOptions.Builder();
+
         if (user.isEmpty() && password.isEmpty())
-            this.mongoClient = new MongoClient(host, port);
+            this.mongoClient = new MongoClient(new ServerAddress(host, port), clientOptions.build());
         else
-            this.mongoClient = new MongoClient(new ServerAddress(host, port), MongoCredential.createScramSha256Credential(user, database, password.toCharArray()), new MongoClientOptions.Builder().build());
+            this.mongoClient = new MongoClient(new ServerAddress(host, port), MongoCredential.createScramSha256Credential(user, database, password.toCharArray()), clientOptions.build());
         this.mongoDatabase = mongoClient.getDatabase(database);
     }
 

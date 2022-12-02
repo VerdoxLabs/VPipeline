@@ -4,6 +4,7 @@ import org.jetbrains.annotations.NotNull;
 import org.reflections.Reflections;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.logging.Level;
 
 /**
  * @version 1.0
@@ -29,6 +30,7 @@ public final class VNetwork {
         if (VNetwork.pipelineService != null) {
             throw new UnsupportedOperationException("Cannot redefine singleton PipelineService");
         }
+        NetworkLogger.getLogger().setLevel(Level.ALL);
         VNetwork.pipelineService = pipelineService;
     }
 

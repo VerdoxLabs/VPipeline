@@ -61,11 +61,6 @@ public abstract class PipelineData implements IPipelineData {
                 }
 
                 @Override
-                public void pushWrite(IPipelineData pipelineData, SynchronizedAccess.SynchronizedWrite<? extends IPipelineData> writer, Runnable callback) {
-
-                }
-
-                @Override
                 public void pushRemoval(IPipelineData pipelineData, Runnable callback) {
 
                 }
@@ -153,5 +148,10 @@ public abstract class PipelineData implements IPipelineData {
             e.printStackTrace();
             return null;
         }
+    }
+
+    @Override
+    public AttachedPipeline getAttachedPipeline() {
+        return attachedPipeline;
     }
 }

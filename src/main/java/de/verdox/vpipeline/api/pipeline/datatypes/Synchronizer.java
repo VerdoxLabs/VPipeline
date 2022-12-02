@@ -3,8 +3,6 @@ package de.verdox.vpipeline.api.pipeline.datatypes;
 import de.verdox.vpipeline.api.pipeline.SynchronizedAccess;
 import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 
-import java.util.function.Consumer;
-
 /**
  * @version 1.0
  * @Author: Lukas Jonsson (Verdox)
@@ -19,7 +17,6 @@ public interface Synchronizer extends SystemPart {
      * Pushes the local data to Pipeline
      */
     void pushUpdate(IPipelineData pipelineData, Runnable callback);
-    void pushWrite(IPipelineData pipelineData, SynchronizedAccess.SynchronizedWrite<? extends IPipelineData> writer, Runnable callback);
 
     /**
      * Notifies other Servers that hold this data to delete it from local Cache

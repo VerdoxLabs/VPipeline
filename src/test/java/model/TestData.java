@@ -2,16 +2,14 @@ package model;
 
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.PipelineData;
+import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 import de.verdox.vpipeline.api.pipeline.enums.DataContext;
 import de.verdox.vpipeline.api.pipeline.annotations.DataStorageIdentifier;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.enums.PreloadStrategy;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * @version 1.0
@@ -27,7 +25,10 @@ public class TestData extends PipelineData {
     public int testInt;
     public List<Double> testList;
     public Set<String> testSet;
-    public Map<String,Boolean> testMap;
+    public Map<String, Boolean> testMap;
+
+    public Set<DataReference<TestData>> referenceSet = new HashSet<>();
+    public Map<UUID, DataReference<TestData>> referenceMap = new HashMap<>();
 
     public TestData(@NotNull Pipeline pipeline, @NotNull UUID objectUUID) {
         super(pipeline, objectUUID);

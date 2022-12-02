@@ -3,6 +3,7 @@ package de.verdox.vpipeline.api.modules.redis.globalcache;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
@@ -20,6 +21,7 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.locks.Lock;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -56,6 +58,7 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
         verifyInput(dataClass, objectUUID);
         performOnWriteLock(dataClass, objectUUID, () -> {
             RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
+            NetworkLogger.getLogger().info("Saving to redis " + dataClass.getSimpleName() + " [" + objectUUID + "]");
             objectCache.set(attachedPipeline.getGson().toJson(dataToSave));
             updateExpireTime(dataClass, objectCache);
             return true;
@@ -66,6 +69,9 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     public boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
         return performOnWriteLock(dataClass, objectUUID, () -> {
+            NetworkLogger
+                    .getLogger()
+                    .info("Removing from redis " + dataClass.getSimpleName() + " [" + objectUUID + "]");
             RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
             return objectCache.delete();
         });
@@ -138,6 +144,9 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     private boolean performOnWriteLock(@Nonnull Class<? extends IPipelineData> dataClass, @Nonnull @NotNull UUID objectUUID, Supplier<Boolean> runnable) {
         var lock = getLock(dataClass, objectUUID);
         lock.writeLock().lock();
+        NetworkLogger
+                .getLogger()
+                .info("Performing redis write for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
         try {
             return runnable.get();
         } finally {
@@ -148,6 +157,9 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     private <T> T performOnReadLock(Class<? extends T> callbackType, @Nonnull Class<? extends IPipelineData> dataClass, @Nonnull @NotNull UUID objectUUID, Supplier<T> runnable) {
         var lock = getLock(dataClass, objectUUID);
         lock.readLock().lock();
+        NetworkLogger
+                .getLogger()
+                .info("Performing redis read for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
         try {
             return runnable.get();
         } finally {
@@ -168,5 +180,19 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     @Override
     public void shutdown() {
         disconnect();
+    }
+
+    @Override
+    public <T extends IPipelineData> Lock acquireGlobalObjectReadLock(@NotNull Class<? extends T> dataClass, @NotNull UUID objectUUID) {
+        verifyInput(dataClass, objectUUID);
+        String storageIdentifier = AnnotationResolver.getDataStorageIdentifier(dataClass);
+        return redissonClient.getReadWriteLock(storageIdentifier + ":" + objectUUID).readLock();
+    }
+
+    @Override
+    public <T extends IPipelineData> Lock acquireGlobalObjectWriteLock(@NotNull Class<? extends T> dataClass, @NotNull UUID objectUUID) {
+        verifyInput(dataClass, objectUUID);
+        String storageIdentifier = AnnotationResolver.getDataStorageIdentifier(dataClass);
+        return redissonClient.getReadWriteLock(storageIdentifier + ":" + objectUUID).writeLock();
     }
 }

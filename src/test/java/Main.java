@@ -1,14 +1,16 @@
 import de.verdox.vpipeline.api.VNetwork;
 import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
+import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import model.TestData;
 import model.TestPing;
 
+import java.io.Serializable;
 import java.util.UUID;
 
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         testDataConcurrency();
     }
 
@@ -44,6 +46,36 @@ public class Main {
         }).start();
     }
 
+/*    public static void testDataReference() throws InterruptedException {
+        UUID uuid = UUID.randomUUID();
+        UUID uuid1 = UUID.randomUUID();
+
+        var pipeline = VNetwork
+                .getConstructionService()
+                .createPipeline()
+                .withGlobalCache(GlobalCache.createRedisCache(false, new String[]{"redis://localhost:6379"}, ""))
+                .withSynchronizingService(SynchronizingService.buildRedisService(false, new String[]{"redis://localhost:6379"}, ""))
+                .withGlobalStorage(GlobalStorage.buildMongoDBStorage("127.0.0.1", "vPipelineTest", 27017, "", ""))
+                .buildPipeline();
+
+        pipeline.getDataRegistry().registerType(TestData.class);
+
+        var result = pipeline.loadOrCreate(TestData.class, uuid);
+
+        result.thenAccept(testDataSynchronizedAccess ->
+                testDataSynchronizedAccess
+                        .write(testData -> pipeline
+                                        .loadOrCreate(TestData.class, uuid1)
+                                        .thenApply(testDataSynchronizedAccess1 -> testData.referenceSet.add(DataReference.of(testDataSynchronizedAccess1)))
+                                , true)
+                        .delete(true)
+                        .write(testData -> testData.testInt += 1, true)
+        );
+
+        Thread.sleep(1000 * 2);
+        pipeline.shutdown();
+    }*/
+
     public static void testDataConcurrency() {
         UUID uuid = UUID.randomUUID();
 
@@ -70,9 +102,16 @@ public class Main {
         new Thread(() -> {
             var data = pipeline.loadOrCreate(TestData.class, uuid);
 
-            data.whenComplete((testDataSynchronizedAccess, throwable) -> {
+            data.thenApply(testDataPipelineLock -> testDataPipelineLock.performWriteOperation(testData -> {
                 for (int i = 0; i < 100; i++)
-                    testDataSynchronizedAccess.write(testData -> testData.testInt += 1, true);
+                    testData.testInt += 1;
+            }, true));
+
+            data.thenApply(testDataPipelineLock -> {
+                for (int i = 0; i < 100; i++) {
+                    testDataPipelineLock.performWriteOperation(testData -> testData.testInt += 1, true);
+                }
+                return testDataPipelineLock;
             });
 
             try {
@@ -81,7 +120,7 @@ public class Main {
                 throw new RuntimeException(e);
             }
 
-            data.whenComplete((testDataSynchronizedAccess, throwable) -> testDataSynchronizedAccess.read(testData -> System.out.println(testData.testInt)));
+            data.thenApply(testDataPipelineLock -> testDataPipelineLock.performReadOperation(testData -> System.out.println(testData.testInt)));
 
             pipeline.shutdown();
         }).start();
@@ -89,10 +128,10 @@ public class Main {
         new Thread(() -> {
             var data = pipeline.loadOrCreate(TestData.class, uuid);
 
-            data.whenCompleteAsync((testDataSynchronizedAccess, throwable) -> {
+            data.thenApply(testDataPipelineLock -> testDataPipelineLock.performWriteOperation(testData -> {
                 for (int i = 0; i < 100; i++)
-                    testDataSynchronizedAccess.write(testData -> testData.testInt += 1, true);
-            });
+                    testData.testInt += 1;
+            }, true));
 
             try {
                 Thread.sleep(1000 * 2);
@@ -100,7 +139,7 @@ public class Main {
                 throw new RuntimeException(e);
             }
 
-            data.whenComplete((testDataSynchronizedAccess, throwable) -> testDataSynchronizedAccess.read(testData -> System.out.println(testData.testInt)));
+            data.thenApply(testDataPipelineLock -> testDataPipelineLock.performReadOperation(testData -> System.out.println(testData.testInt)));
 
             pipeline.shutdown();
         }).start();
@@ -108,17 +147,18 @@ public class Main {
         new Thread(() -> {
             var data = remotePipeline.loadOrCreate(TestData.class, uuid);
 
-            data.whenComplete((testDataSynchronizedAccess, throwable) -> {
+            data.thenApply(testDataPipelineLock -> testDataPipelineLock.performWriteOperation(testData -> {
                 for (int i = 0; i < 100; i++)
-                    testDataSynchronizedAccess.write(testData -> testData.testInt += 1, true);
-            });
+                    testData.testInt += 1;
+            }, true));
+
             try {
                 Thread.sleep(1000 * 2);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
 
-            data.whenComplete((testDataSynchronizedAccess, throwable) -> testDataSynchronizedAccess.read(testData -> System.out.println(testData.testInt)));
+            data.thenApply(testDataPipelineLock -> testDataPipelineLock.performReadOperation(testData -> System.out.println(testData.testInt)));
 
             remotePipeline.shutdown();
         }).start();

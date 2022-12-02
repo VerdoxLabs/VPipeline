@@ -48,15 +48,12 @@ public class RedisDataSynchronizer implements Synchronizer {
                 NetworkLogger
                         .getLogger()
                         .info("Received network sync for " + dataClass.getSimpleName() + " [" + data + " | " + dataBlock.dataUUID + "]");
-                data.onSync(data.deserialize(JsonParser.parseString(updateDataBlock.dataToUpdate).getAsJsonObject()));
+                data.onSync(data.deserialize(JsonParser
+                        .parseString(updateDataBlock.dataToUpdate)
+                        .getAsJsonObject()));
             } else if (dataBlock instanceof RemoveDataBlock) {
                 data.markRemoval();
                 pipeline.getLocalCache().remove(dataClass, data.getObjectUUID());
-            } else if (dataBlock instanceof WriteDataBlock writeDataBlock) {
-                NetworkLogger
-                        .getLogger()
-                        .info("Received network write for " + dataClass.getSimpleName() + " [" + data + " | " + dataBlock.dataUUID + "]");
-                new SynchronizedAccess<>(data).write((SynchronizedAccess.SynchronizedWrite<IPipelineData>) writeDataBlock.consumer, false);
             }
         };
         dataTopic.addListener(DataBlock.class, messageListener);
@@ -72,48 +69,39 @@ public class RedisDataSynchronizer implements Synchronizer {
         Objects.requireNonNull(data, "vCoreData can't be null!");
         if (data.isMarkedForRemoval())
             return;
-        dataTopic.publish(new UpdateDataBlock(senderUUID, data.getObjectUUID(), attachedPipeline
-                .getGson()
-                .toJson(data.serialize())));
-        NetworkLogger
-                .getLogger()
-                .info("Pushed network sync for " + data
-                        .getClass()
-                        .getSimpleName() + " [" + data + " | " + data.getObjectUUID() + "]");
         attachedPipeline.getAttachedPipeline()
                         .getPipelineSynchronizer()
-                        .synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, data.getClass(), data.getObjectUUID());
-        if (callback != null)
-            callback.run();
-    }
-
-    @Override
-    public void pushWrite(IPipelineData data, SynchronizedAccess.SynchronizedWrite<? extends IPipelineData> writer, Runnable callback) {
-        Objects.requireNonNull(data, "vCoreData can't be null!");
-        Objects.requireNonNull(writer, "writer can't be null!");
-        if (data.isMarkedForRemoval())
-            return;
-
-        dataTopic.publish(new WriteDataBlock(senderUUID, data.getObjectUUID(), writer));
-        NetworkLogger
-                .getLogger()
-                .info("Pushed network write for " + data
-                        .getClass()
-                        .getSimpleName() + " [" + data + " | " + data.getObjectUUID() + "]");
-        attachedPipeline.getAttachedPipeline()
-                        .getPipelineSynchronizer()
-                        .synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, data.getClass(), data.getObjectUUID());
-        if (callback != null)
-            callback.run();
+                        .synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, data.getClass(), data.getObjectUUID(), () -> {
+                            var count = dataTopic.publish(new UpdateDataBlock(senderUUID, data.getObjectUUID(), attachedPipeline
+                                    .getGson()
+                                    .toJson(data.serialize())));
+                            NetworkLogger
+                                    .getLogger()
+                                    .info("Pushed network sync to " + count + " clients for " + data
+                                            .getClass()
+                                            .getSimpleName() + " [" + data + " | " + data.getObjectUUID() + "]");
+                            if (callback != null)
+                                callback.run();
+                        });
     }
 
     @Override
     public void pushRemoval(@NotNull IPipelineData data, @Nullable Runnable callback) {
         Objects.requireNonNull(data, "vCoreData can't be null!");
-        data.markRemoval();
-        dataTopic.publish(new RemoveDataBlock(senderUUID, data.getObjectUUID()));
-        if (callback != null)
-            callback.run();
+        attachedPipeline
+                .getAttachedPipeline()
+                .load(data.getClass(), data.getObjectUUID())
+                .thenApply(pipelineLock -> pipelineLock.runOnWriteLock(() -> {
+                    dataTopic.publish(new RemoveDataBlock(senderUUID, data.getObjectUUID()));
+                    NetworkLogger
+                            .getLogger()
+                            .info("Pushed network removal for " + data
+                                    .getClass()
+                                    .getSimpleName() + " [" + data + " | " + data.getObjectUUID() + "]");
+                    data.markRemoval();
+                    if (callback != null)
+                        callback.run();
+                }));
     }
 
     @Override
@@ -143,15 +131,6 @@ public class RedisDataSynchronizer implements Synchronizer {
         UpdateDataBlock(@NotNull UUID senderUUID, @NotNull UUID dataUUID, String dataToUpdate) {
             super(senderUUID, dataUUID);
             this.dataToUpdate = dataToUpdate;
-        }
-    }
-
-    public static class WriteDataBlock extends DataBlock {
-        private final Consumer<? extends IPipelineData> consumer;
-
-        WriteDataBlock(@NotNull UUID senderUUID, @NotNull UUID dataUUID, Consumer<? extends IPipelineData> consumer) {
-            super(senderUUID, dataUUID);
-            this.consumer = consumer;
         }
     }
 }
