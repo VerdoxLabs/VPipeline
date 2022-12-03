@@ -15,7 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 public record DataReference<T extends IPipelineData>(SynchronizedAccess<T> referencedAccess) {
-
+    //TODO: Muss geändert werden
     public static <T extends IPipelineData> DataReference<T> of(SynchronizedAccess<T> referencedAccess) {
         return new DataReference<>(referencedAccess);
     }

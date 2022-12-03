@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
@@ -31,6 +32,7 @@ public class JsonFileStorage implements GlobalStorage {
     public JsonFileStorage(Path path) {
         this.path = path;
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
+        NetworkLogger.getLogger().info("JsonFileStorage loaded");
     }
 
     @Override

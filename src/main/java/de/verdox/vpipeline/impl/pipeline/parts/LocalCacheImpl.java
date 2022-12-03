@@ -21,6 +21,7 @@ public class LocalCacheImpl implements LocalCache {
 
     public LocalCacheImpl() {
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
+        NetworkLogger.getLogger().info("Local Cache initialized");
     }
 
 
@@ -37,10 +38,8 @@ public class LocalCacheImpl implements LocalCache {
         Objects.requireNonNull(object, "object can't be null!");
         if (dataExist(object.getClass(), object.getObjectUUID()))
             return;
-        NetworkLogger.getLogger().info("[LocalCache] Saving Object of type: " + object.getClass().getSimpleName());
-        cache
-                .computeIfAbsent(object.getClass(), aClass -> new ConcurrentHashMap<>())
-                .put(object.getObjectUUID(), object);
+        cache.computeIfAbsent(object.getClass(), aClass -> new ConcurrentHashMap<>())
+             .put(object.getObjectUUID(), object);
         object.updateLastUsage();
     }
 

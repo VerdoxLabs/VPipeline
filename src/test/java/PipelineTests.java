@@ -6,17 +6,18 @@ import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import model.TestData;
-import model.TestPing;
 import model.TestQuery;
 import model.TestUpdate;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,15 +29,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class PipelineTests {
 
-    public static Pipeline pipeline1;
-    public static Pipeline pipeline2;
+    public static Pipeline pipeline;
+    public static Pipeline remotePipeline;
     public static MessagingService messagingService1;
     public static MessagingService messagingService2;
     public static TestData testData;
 
     @BeforeAll
     public static void setupPipeline() {
-        pipeline1 = VNetwork
+        pipeline = VNetwork
                 .getConstructionService()
                 .createPipeline()
                 .withGlobalCache(GlobalCache.createRedisCache(false, new String[]{"redis://localhost:6379"}, ""))
@@ -44,9 +45,9 @@ public class PipelineTests {
                 .withGlobalStorage(GlobalStorage.buildMongoDBStorage("127.0.0.1", "vPipelineTest", 27017, "", ""))
                 .buildPipeline();
 
-        pipeline1.getDataRegistry().registerType(TestData.class);
+        pipeline.getDataRegistry().registerType(TestData.class);
 
-        pipeline2 = VNetwork
+        remotePipeline = VNetwork
                 .getConstructionService()
                 .createPipeline()
                 .withGlobalCache(GlobalCache.createRedisCache(false, new String[]{"redis://localhost:6379"}, ""))
@@ -54,7 +55,7 @@ public class PipelineTests {
                 .withGlobalStorage(GlobalStorage.buildMongoDBStorage("127.0.0.1", "vPipelineTest", 27017, "", ""))
                 .buildPipeline();
 
-        pipeline2.getDataRegistry().registerType(TestData.class);
+        remotePipeline.getDataRegistry().registerType(TestData.class);
 
         messagingService1 = VNetwork
                 .getConstructionService()
@@ -86,15 +87,58 @@ public class PipelineTests {
     }
 
     @Test
-    public void testChangeDataRuntime1() throws ExecutionException, InterruptedException {
-/*        testData = pipeline1.loadOrCreate(TestData.class, UUID.randomUUID()).get();
-        testData.testInt = 1;
-        var dataExists = pipeline2.exist(TestData.class, testData.getObjectUUID()).get();
-        assertTrue(dataExists);
-        TestData dataFromOtherPipeline = pipeline2.load(TestData.class, testData.getObjectUUID()).get();
-        testData.save(true);
+    public void testConcurrency() throws ExecutionException, InterruptedException {
+        var uuid = UUID.nameUUIDFromBytes("test".getBytes(StandardCharsets.UTF_8));
+/*
+        var lock = remotePipeline
+                .loadOrCreate(TestData.class, uuid)
+                .get();
 
-        assertEquals(1, dataFromOtherPipeline.testInt);*/
+        var tasksComplete = new CompletableFuture<Boolean>();
+
+        lock
+                .performWriteOperation(testData1 -> testData1.testInt = 0, true)
+                .thenApply(pipelineLock -> pipelineLock.performWriteOperation(testData1 -> {
+                            for (int i = 0; i < 100; i++)
+                                testData.testInt += 1;
+                        }, true).join()
+                );
+
+        lock.performWriteOperation(testData1 -> testData1.testInt = 0, true).thenApply(pipelineLock -> {
+            var data = pipeline.loadOrCreate(TestData.class, uuid);
+
+            try {
+                data.thenAccept(testDataPipelineLock -> testDataPipelineLock.performWriteOperation(testData -> {
+                    for (int i = 0; i < 100; i++)
+                        testData.testInt += 1;
+                }, true)).get();
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+
+            data.thenAccept(testDataPipelineLock -> testDataPipelineLock.performWriteOperation(testData -> {
+                for (int i = 0; i < 100; i++)
+                    testData.testInt += 1;
+            }, true));
+
+            var remoteData = remotePipeline.loadOrCreate(TestData.class, uuid);
+
+            remoteData.thenAccept(testDataPipelineLock -> testDataPipelineLock.performWriteOperation(testData -> {
+                for (int i = 0; i < 100; i++)
+                    testData.testInt += 1;
+            }, true));
+
+            tasksComplete.complete(true);
+            return pipelineLock;
+        });
+
+        tasksComplete.get();
+
+        var testInt = remotePipeline
+                .loadOrCreate(TestData.class, uuid)
+                .get()
+                .syncGetter(testData1 -> testData1.testInt);
+        assertEquals(300, testInt, "Testint is not " + 400);*/
     }
 
     @Test
@@ -108,10 +152,10 @@ public class PipelineTests {
     @AfterAll
     public static void cleanUp() {
         if (testData != null)
-            pipeline1.delete(testData.getClass(), testData.getObjectUUID());
+            pipeline.delete(testData.getClass(), testData.getObjectUUID());
 
-        pipeline1.shutdown();
-        pipeline2.shutdown();
+        pipeline.shutdown();
+        remotePipeline.shutdown();
 
         messagingService1.shutdown();
         messagingService2.shutdown();

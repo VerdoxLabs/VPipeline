@@ -31,50 +31,40 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     public RedisCache(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
         super(clusterMode, addressArray, redisPassword);
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
+        NetworkLogger.getLogger().info("Redis GlobalCache connected");
     }
 
     @Override
     public JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
-        return performOnReadLock(JsonElement.class, dataClass, objectUUID, () -> {
-            try {
-                return JsonParser.parseString(getObjectCache(dataClass, objectUUID).get()).getAsJsonObject();
-            } catch (Exception e) {
-                e.printStackTrace();
-                remove(dataClass, objectUUID);
-                return null;
-            }
-        });
+        try {
+            return JsonParser.parseString(getObjectCache(dataClass, objectUUID).get()).getAsJsonObject();
+        } catch (Exception e) {
+            e.printStackTrace();
+            remove(dataClass, objectUUID);
+            return null;
+        }
     }
 
     @Override
     public boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
-        return performOnReadLock(boolean.class, dataClass, objectUUID, () -> getObjectCache(dataClass, objectUUID).isExists());
+        return getObjectCache(dataClass, objectUUID).isExists();
     }
 
     @Override
     public void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
         verifyInput(dataClass, objectUUID);
-        performOnWriteLock(dataClass, objectUUID, () -> {
-            RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
-            NetworkLogger.getLogger().info("Saving to redis " + dataClass.getSimpleName() + " [" + objectUUID + "]");
-            objectCache.set(attachedPipeline.getGson().toJson(dataToSave));
-            updateExpireTime(dataClass, objectCache);
-            return true;
-        });
+        RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
+        objectCache.set(attachedPipeline.getGson().toJson(dataToSave));
+        updateExpireTime(dataClass, objectCache);
     }
 
     @Override
     public boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
-        return performOnWriteLock(dataClass, objectUUID, () -> {
-            NetworkLogger
-                    .getLogger()
-                    .info("Removing from redis " + dataClass.getSimpleName() + " [" + objectUUID + "]");
-            RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
-            return objectCache.delete();
-        });
+        RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
+        return objectCache.delete();
     }
 
     @Override
@@ -133,38 +123,6 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     private void verifyInput(@Nonnull Class<? extends IPipelineData> dataClass, @Nonnull @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
-    }
-
-    private RReadWriteLock getLock(@Nonnull Class<? extends IPipelineData> dataClass, @Nonnull @NotNull UUID objectUUID) {
-        verifyInput(dataClass, objectUUID);
-        String storageIdentifier = AnnotationResolver.getDataStorageIdentifier(dataClass);
-        return redissonClient.getReadWriteLock(storageIdentifier + ":" + objectUUID);
-    }
-
-    private boolean performOnWriteLock(@Nonnull Class<? extends IPipelineData> dataClass, @Nonnull @NotNull UUID objectUUID, Supplier<Boolean> runnable) {
-        var lock = getLock(dataClass, objectUUID);
-        lock.writeLock().lock();
-        NetworkLogger
-                .getLogger()
-                .info("Performing redis write for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
-        try {
-            return runnable.get();
-        } finally {
-            lock.writeLock().unlock();
-        }
-    }
-
-    private <T> T performOnReadLock(Class<? extends T> callbackType, @Nonnull Class<? extends IPipelineData> dataClass, @Nonnull @NotNull UUID objectUUID, Supplier<T> runnable) {
-        var lock = getLock(dataClass, objectUUID);
-        lock.readLock().lock();
-        NetworkLogger
-                .getLogger()
-                .info("Performing redis read for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
-        try {
-            return runnable.get();
-        } finally {
-            lock.readLock().unlock();
-        }
     }
 
     @Override

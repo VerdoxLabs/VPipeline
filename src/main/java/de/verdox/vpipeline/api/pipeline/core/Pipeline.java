@@ -34,6 +34,8 @@ public interface Pipeline extends SystemPart {
     @Nullable
     GlobalCache getGlobalCache();
 
+    boolean isReady();
+
     @Nullable
     GlobalStorage getGlobalStorage();
 

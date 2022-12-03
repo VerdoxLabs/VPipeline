@@ -2,6 +2,7 @@ package de.verdox.vpipeline.api.modules.sql.mysql;
 
 import com.google.gson.GsonBuilder;
 import com.zaxxer.hikari.HikariDataSource;
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.modules.sql.SQLStorage;
 import org.jetbrains.annotations.NotNull;
@@ -27,6 +28,7 @@ public class MySQLStorage extends SQLStorage {
     public MySQLStorage(HikariDataSource hikariDataSource) {
         this.hikariDataSource = hikariDataSource;
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
+        NetworkLogger.getLogger().info("MySQL Global Storage connected");
     }
 
     @Override

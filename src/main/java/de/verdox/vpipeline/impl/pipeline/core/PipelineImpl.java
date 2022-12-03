@@ -63,6 +63,7 @@ public class PipelineImpl implements Pipeline {
         if (globalStorage != null)
             this.globalStorage.getAttachedPipeline().attachPipeline(this);
         this.ready = true;
+        NetworkLogger.getLogger().info("Pipeline started");
     }
 
     public void setNetworkParticipant(NetworkParticipant networkParticipant) {
@@ -92,6 +93,11 @@ public class PipelineImpl implements Pipeline {
     @Override
     public @Nullable GlobalCache getGlobalCache() {
         return globalCache;
+    }
+
+    @Override
+    public boolean isReady() {
+        return ready;
     }
 
     @Override
@@ -306,7 +312,7 @@ public class PipelineImpl implements Pipeline {
         Objects.requireNonNull(uuid, "UUID can't be null");
         NetworkLogger
                 .getLogger()
-                .info("[Pipeline] Creating new data of type: " + dataClass.getSimpleName() + " [" + uuid + "]");
+                .fine("[Pipeline] Creating new data of type: " + dataClass.getSimpleName() + " [" + uuid + "]");
         T pipelineData = localCache.instantiateData(dataClass, uuid);
         pipelineData.loadDependentData();
         pipelineData.onCreate();
@@ -326,14 +332,12 @@ public class PipelineImpl implements Pipeline {
     @Override
     public synchronized void shutdown() {
         if (!this.ready) {
-            NetworkLogger.getLogger().warning("Pipeline is already offline");
+            NetworkLogger.getLogger().info("Pipeline is already offline");
             return;
         }
         this.ready = false;
-        NetworkLogger.getLogger().warning("Saving all data");
-        saveAll();
 
-        NetworkLogger.getLogger().warning("Shutting down pipeline");
+        NetworkLogger.getLogger().info("Shutting down pipeline");
         getExecutorService().shutdown();
         try {
             var worked = getExecutorService().awaitTermination(10, TimeUnit.SECONDS);
@@ -343,7 +347,13 @@ public class PipelineImpl implements Pipeline {
             throw new RuntimeException(e);
         }
 
-        NetworkLogger.getLogger().warning("Shutting down data providers");
+        NetworkLogger.getLogger().info("Saving all data");
+        saveAll();
+
+        NetworkLogger.getLogger().info("Shutting down pipeline synchronizer");
+        getPipelineSynchronizer().shutdown();
+
+        NetworkLogger.getLogger().info("Shutting down data providers");
 
         if (getGlobalStorage() != null)
             getGlobalStorage().shutdown();
@@ -352,9 +362,7 @@ public class PipelineImpl implements Pipeline {
         if (getSynchronizingService() != null)
             getSynchronizingService().shutdown();
         getLocalCache().shutdown();
-        NetworkLogger.getLogger().warning("Shutting down pipeline synchronizer");
-        getPipelineSynchronizer().shutdown();
-        NetworkLogger.getLogger().warning("Pipeline offline");
+        NetworkLogger.getLogger().info("Pipeline offline");
     }
 
     private void executePipelineTask(CompletableFuture<?> future, Callable<?> callable) {

@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.InstanceCreator;
 import com.google.gson.JsonElement;
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.SynchronizedAccess;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
@@ -15,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -74,6 +76,7 @@ public abstract class PipelineData implements IPipelineData {
         this.cleanTime = dataProperties.time();
         this.cleanTimeUnit = dataProperties.timeUnit();
     }
+
     @Override
     public UUID getObjectUUID() {
         return objectUUID;
@@ -81,7 +84,7 @@ public abstract class PipelineData implements IPipelineData {
 
     @Override
     public JsonElement serialize() {
-        synchronized (this){
+        synchronized (this) {
             markedForRemoval = false;
             return attachedPipeline.getGson().toJsonTree(this);
         }
@@ -89,7 +92,7 @@ public abstract class PipelineData implements IPipelineData {
 
     @Override
     public String deserialize(JsonElement jsonObject) {
-        synchronized (this){
+        synchronized (this) {
             markedForRemoval = false;
             attachedPipeline.getGson().fromJson(jsonObject, getClass());
             return attachedPipeline.getGson().toJson(jsonObject);
@@ -117,22 +120,31 @@ public abstract class PipelineData implements IPipelineData {
     }
 
     @Override
-    public void save(boolean saveToStorage) {
-        synchronized (this){
+    public CompletableFuture<Boolean> save(boolean saveToStorage) {
+        synchronized (this) {
+            var future = new CompletableFuture<Boolean>();
             updateLastUsage();
+            //TODO: Completable Future
             if (this.synchronizer == null) {
                 attachedPipeline.getAttachedPipeline()
                                 .getPipelineSynchronizer()
-                                .synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, getClass(), getObjectUUID());
-                return;
+                                .synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, getClass(), getObjectUUID(), () -> {
+                                    future.complete(true);
+                                });
+            } else {
+                this.synchronizer.pushUpdate(this, () -> {
+                    if (!saveToStorage) {
+                        future.complete(true);
+                        return;
+                    }
+                    attachedPipeline.getAttachedPipeline()
+                                    .getPipelineSynchronizer()
+                                    .synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, getClass(), getObjectUUID(), () -> {
+                                        future.complete(true);
+                                    });
+                });
             }
-            this.synchronizer.pushUpdate(this, () -> {
-                if (!saveToStorage)
-                    return;
-                attachedPipeline.getAttachedPipeline()
-                                .getPipelineSynchronizer()
-                                .synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, getClass(), getObjectUUID());
-            });
+            return future;
         }
     }
 

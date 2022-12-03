@@ -168,6 +168,7 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
         else
             this.mongoClient = new MongoClient(new ServerAddress(host, port), MongoCredential.createScramSha256Credential(user, database, password.toCharArray()), clientOptions.build());
         this.mongoDatabase = mongoClient.getDatabase(database);
+        NetworkLogger.getLogger().info("MongoDB GlobalStorage connected");
     }
 
     @Override

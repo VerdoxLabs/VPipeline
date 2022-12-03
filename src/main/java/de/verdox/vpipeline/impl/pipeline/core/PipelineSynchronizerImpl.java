@@ -1,6 +1,7 @@
 package de.verdox.vpipeline.impl.pipeline.core;
 
 import com.google.gson.JsonElement;
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.pipeline.core.PipelineSynchronizer;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.DataProvider;
@@ -15,38 +16,56 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
     @Override
     public void synchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback) {
         verifyInput(source, destination, dataClass, objectUUID);
-        pipeline
-                .getExecutorService()
-                .submit(() -> pipeline
-                        .createPipelineLock(dataClass, objectUUID)
-                        .runOnWriteLock(() -> doSynchronisation(source, destination, dataClass, objectUUID, callback)));
+        pipeline.getExecutorService()
+                .submit(() -> doSynchronisation(source, destination, dataClass, objectUUID, callback));
     }
 
     boolean doSynchronisation(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback) {
 
-        if (source.equals(destination))
+        if (source.equals(destination)) {
+            NetworkLogger.getLogger().warning("Can't sync from " + source + " to " + destination);
             return false;
+        }
         if ((pipeline.getGlobalCache() == null || !AnnotationResolver
                 .getDataProperties(dataClass)
                 .dataContext()
-                .isCacheAllowed()) && (source.equals(DataSourceType.GLOBAL_CACHE) || destination.equals(DataSourceType.GLOBAL_CACHE)))
+                .isCacheAllowed()) && (source.equals(DataSourceType.GLOBAL_CACHE) || destination.equals(DataSourceType.GLOBAL_CACHE))) {
+            NetworkLogger
+                    .getLogger()
+                    .warning("Can't sync because either no global cache or not allowed for " + dataClass.getSimpleName());
             return false;
+        }
         if ((pipeline.getGlobalStorage() == null || !AnnotationResolver
                 .getDataProperties(dataClass)
                 .dataContext()
-                .isStorageAllowed()) && (source.equals(DataSourceType.GLOBAL_STORAGE) || destination.equals(DataSourceType.GLOBAL_STORAGE)))
+                .isStorageAllowed()) && (source.equals(DataSourceType.GLOBAL_STORAGE) || destination.equals(DataSourceType.GLOBAL_STORAGE))) {
+            NetworkLogger
+                    .getLogger()
+                    .warning("Can't sync because either no global storage or not allowed for " + dataClass.getSimpleName());
             return false;
+        }
 
         DataProvider sourceProvider = getProvider(source);
-        if (!sourceProvider.dataExist(dataClass, objectUUID))
+        if (!sourceProvider.dataExist(dataClass, objectUUID)) {
+            NetworkLogger
+                    .getLogger()
+                    .warning("Can't sync because data does not exist in " + source + " for " + dataClass.getSimpleName());
             return false;
+        }
+
         JsonElement data = sourceProvider.loadData(dataClass, objectUUID);
-        if (data == null)
+        if (data == null) {
+            NetworkLogger
+                    .getLogger()
+                    .warning("Data is null in " + source + " for " + dataClass.getSimpleName());
             return false;
+        }
         DataProvider destinationProvider = getProvider(destination);
+        NetworkLogger
+                .getLogger()
+                .fine("Attempting to sync from "+source+" to "+destination+" for "+dataClass.getSimpleName()+" ["+objectUUID+"]");
         destinationProvider.save(dataClass, objectUUID, data);
 
-        //pipelineManager.getPlugin().consoleMessage("&eDone syncing &b" + System.currentTimeMillis(), true);
         if (callback != null)
             callback.run();
         return true;

@@ -4,6 +4,8 @@ import com.google.gson.JsonElement;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 
 /**
  * @version 1.0
@@ -75,6 +77,6 @@ public interface IPipelineData {
     void markRemoval();
     boolean isMarkedForRemoval();
     void updateLastUsage();
-    void save(boolean saveToStorage);
+    CompletableFuture<Boolean> save(boolean saveToStorage);
     AttachedPipeline getAttachedPipeline();
 }

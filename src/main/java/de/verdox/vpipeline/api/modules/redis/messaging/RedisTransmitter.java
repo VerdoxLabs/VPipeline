@@ -38,6 +38,7 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
             messagingService.postMessageEvent(String.valueOf(channel), msg);
         };
         globalMessagingChannel.addListener(Message.class, listener);
+        NetworkLogger.getLogger().info("Redis Transmitter connected");
     }
 
     @Override
@@ -45,7 +46,7 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
         if (receivers == null || receivers.length == 0) {
             NetworkLogger
                     .getLogger()
-                    .info("[" + messagingService.getSessionIdentifier() + "] dumped message because it has no receiver ");
+                    .warning("[" + messagingService.getSessionIdentifier() + "] dumped message because it has no receiver ");
             return;
         }
         for (UUID receiver : receivers) {
@@ -53,7 +54,7 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
                 continue;
             NetworkLogger
                     .getLogger()
-                    .info("[" + messagingService.getSessionIdentifier() + "] Sending message to " + receiver);
+                    .fine("[" + messagingService.getSessionIdentifier() + "] Sending message to " + receiver);
             getPrivateMessagingChannel(receiver).publish(message);
         }
     }
@@ -62,7 +63,7 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
     public void broadcastMessage(Message message) {
         NetworkLogger
                 .getLogger()
-                .info("[" + messagingService.getSessionIdentifier() + "] Broadcasting message");
+                .fine("[" + messagingService.getSessionIdentifier() + "] Broadcasting message");
         globalMessagingChannel.publish(message);
     }
 

@@ -1,17 +1,16 @@
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.VNetwork;
 import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
-import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import model.TestData;
 import model.TestPing;
 
-import java.io.Serializable;
 import java.util.UUID;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
-        testDataConcurrency();
+        asyncTest();
     }
 
     public static void testPingsConcurrent() {
@@ -176,5 +175,46 @@ public class Main {
             });
             pipeline.shutdown();
         }).start();*/
+    }
+
+    public static void asyncTest() throws InterruptedException {
+        var pipeline = VNetwork
+                .getConstructionService()
+                .createPipeline()
+                .withGlobalCache(GlobalCache.createRedisCache(false, new String[]{"redis://localhost:6379"}, ""))
+                .withSynchronizingService(SynchronizingService.buildRedisService(false, new String[]{"redis://localhost:6379"}, ""))
+                .withGlobalStorage(GlobalStorage.buildMongoDBStorage("127.0.0.1", "vPipelineTest", 27017, "", ""))
+                .buildPipeline();
+
+        var remotePipeline = VNetwork
+                .getConstructionService()
+                .createPipeline()
+                .withGlobalCache(GlobalCache.createRedisCache(false, new String[]{"redis://localhost:6379"}, ""))
+                .withSynchronizingService(SynchronizingService.buildRedisService(false, new String[]{"redis://localhost:6379"}, ""))
+                .withGlobalStorage(GlobalStorage.buildMongoDBStorage("127.0.0.1", "vPipelineTest", 27017, "", ""))
+                .buildPipeline();
+
+        var uuid = UUID.randomUUID();
+
+        pipeline.loadOrCreate(TestData.class, uuid)
+                .thenApply(pipelineLock -> pipelineLock.performWriteOperation(testData -> testData.testInt += 1))
+                .thenApply(pipelineLock -> pipelineLock.performWriteOperation(testData -> testData.testString = "hallo"))
+                .join();
+
+        var t1 = new Thread(() -> {
+            remotePipeline.loadOrCreate(TestData.class, uuid)
+                    .thenApply(pipelineLock -> pipelineLock.performWriteOperation(testData -> testData.testInt += 1))
+                    .thenApply(pipelineLock -> pipelineLock.performWriteOperation(testData -> testData.testString = "hallo"))
+                    .join();
+        });
+        t1.start();
+        t1.join();
+
+        pipeline.delete(TestData.class,uuid).join();
+
+
+
+        pipeline.shutdown();
+        remotePipeline.shutdown();
     }
 }

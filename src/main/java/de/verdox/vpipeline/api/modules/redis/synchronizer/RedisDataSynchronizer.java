@@ -47,7 +47,7 @@ public class RedisDataSynchronizer implements Synchronizer {
             if (dataBlock instanceof UpdateDataBlock updateDataBlock) {
                 NetworkLogger
                         .getLogger()
-                        .info("Received network sync for " + dataClass.getSimpleName() + " [" + data + " | " + dataBlock.dataUUID + "]");
+                        .fine("Received network sync for " + dataClass.getSimpleName() + " [" + data + " | " + dataBlock.dataUUID + "]");
                 data.onSync(data.deserialize(JsonParser
                         .parseString(updateDataBlock.dataToUpdate)
                         .getAsJsonObject()));
@@ -77,7 +77,7 @@ public class RedisDataSynchronizer implements Synchronizer {
                                     .toJson(data.serialize())));
                             NetworkLogger
                                     .getLogger()
-                                    .info("Pushed network sync to " + count + " clients for " + data
+                                    .fine("Pushed network sync to " + count + " clients for " + data
                                             .getClass()
                                             .getSimpleName() + " [" + data + " | " + data.getObjectUUID() + "]");
                             if (callback != null)
@@ -94,8 +94,7 @@ public class RedisDataSynchronizer implements Synchronizer {
                 .thenApply(pipelineLock -> pipelineLock.runOnWriteLock(() -> {
                     dataTopic.publish(new RemoveDataBlock(senderUUID, data.getObjectUUID()));
                     NetworkLogger
-                            .getLogger()
-                            .info("Pushed network removal for " + data
+                            .getLogger().fine("Pushed network removal for " + data
                                     .getClass()
                                     .getSimpleName() + " [" + data + " | " + data.getObjectUUID() + "]");
                     data.markRemoval();

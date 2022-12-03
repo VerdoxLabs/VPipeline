@@ -1,5 +1,6 @@
 package de.verdox.vpipeline.api.modules.redis.synchronizer;
 
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
@@ -24,6 +25,7 @@ public class RedisSynchronizingService implements SynchronizingService {
     public RedisSynchronizingService(@NotNull RedisConnection redisConnection) {
         this.redisConnection = redisConnection;
         this.cache = new ConcurrentHashMap<>();
+        NetworkLogger.getLogger().info("Redis Synchronizing Service started");
     }
 
     @Override
