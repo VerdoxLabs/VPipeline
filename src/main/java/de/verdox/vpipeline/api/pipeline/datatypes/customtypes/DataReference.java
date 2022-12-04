@@ -5,19 +5,17 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import de.verdox.vpipeline.api.NetworkLogger;
-import de.verdox.vpipeline.api.pipeline.SynchronizedAccess;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
+import de.verdox.vpipeline.api.pipeline.core.PipelineLock;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 
 import java.io.IOException;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
-public record DataReference<T extends IPipelineData>(SynchronizedAccess<T> referencedAccess) {
-    //TODO: Muss geändert werden
-    public static <T extends IPipelineData> DataReference<T> of(SynchronizedAccess<T> referencedAccess) {
-        return new DataReference<>(referencedAccess);
+public record DataReference<T extends IPipelineData>(PipelineLock<T> pipelineLock) {
+    public static <T extends IPipelineData> DataReference<T> of(PipelineLock<T> pipelineLock) {
+        return new DataReference<>(pipelineLock);
     }
 
     public static class ReferenceAdapter extends TypeAdapter<DataReference<?>> {
@@ -29,13 +27,11 @@ public record DataReference<T extends IPipelineData>(SynchronizedAccess<T> refer
 
         @Override
         public void write(JsonWriter jsonWriter, DataReference<?> dataReference) throws IOException {
-            var storageID = AnnotationResolver.getDataStorageIdentifier(dataReference.referencedAccess
-                    .getType());
-
+            var storageID = AnnotationResolver.getDataStorageIdentifier(dataReference.pipelineLock.getObjectType());
             jsonWriter
                     .beginObject()
                     .name("uuid")
-                    .value(dataReference.referencedAccess.getUuid().toString())
+                    .value(dataReference.pipelineLock().getObjectUUID().toString())
                     .name("type")
                     .value(storageID)
                     .endObject();
@@ -68,21 +64,14 @@ public record DataReference<T extends IPipelineData>(SynchronizedAccess<T> refer
                 }
             }
 
-            if(type == null){
+            if (type == null) {
                 NetworkLogger.getLogger().warning("Error while reading data reference. Type could not be found");
                 return null;
-            }
-            else if(uuid == null){
+            } else if (uuid == null) {
                 NetworkLogger.getLogger().warning("Error while reading data reference. UUID could not be found");
                 return null;
             }
-/*            SynchronizedAccess<?> synchronizedAccess;
-            try {
-                synchronizedAccess = pipeline.load(type, uuid).get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new RuntimeException(e);
-            }*/
-            return new DataReference<>(null);
+            return new DataReference<>(pipeline.createPipelineLock(type, uuid));
         }
     }
 }

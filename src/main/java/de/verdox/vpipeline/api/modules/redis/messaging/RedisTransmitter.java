@@ -38,7 +38,7 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
             messagingService.postMessageEvent(String.valueOf(channel), msg);
         };
         globalMessagingChannel.addListener(Message.class, listener);
-        NetworkLogger.getLogger().info("Redis Transmitter connected");
+        NetworkLogger.info("Redis Transmitter connected");
     }
 
     @Override

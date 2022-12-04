@@ -2,6 +2,7 @@ package de.verdox.vpipeline.api.pipeline.datatypes;
 
 import com.google.gson.JsonElement;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -72,11 +73,9 @@ public interface IPipelineData {
      */
     String deserialize(JsonElement jsonObject);
 
+    @NotNull
     Synchronizer getSynchronizer();
-
-    void markRemoval();
-    boolean isMarkedForRemoval();
     void updateLastUsage();
-    CompletableFuture<Boolean> save(boolean saveToStorage);
+    CompletableFuture<Void> save(boolean saveToStorage);
     AttachedPipeline getAttachedPipeline();
 }

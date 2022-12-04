@@ -21,7 +21,7 @@ public class LocalCacheImpl implements LocalCache {
 
     public LocalCacheImpl() {
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
-        NetworkLogger.getLogger().info("Local Cache initialized");
+        NetworkLogger.info("Local Cache initialized");
     }
 
 
@@ -36,11 +36,14 @@ public class LocalCacheImpl implements LocalCache {
     @Override
     public synchronized <S extends IPipelineData> void saveObject(@NotNull S object) {
         Objects.requireNonNull(object, "object can't be null!");
-        if (dataExist(object.getClass(), object.getObjectUUID()))
+/*        if (dataExist(object.getClass(), object.getObjectUUID())) {
             return;
+        }*/
         cache.computeIfAbsent(object.getClass(), aClass -> new ConcurrentHashMap<>())
              .put(object.getObjectUUID(), object);
         object.updateLastUsage();
+        NetworkLogger
+                .info("[LocalCache] Saved " + object + " [" + object.getObjectUUID() + "]");
     }
 
     @Override
@@ -48,6 +51,9 @@ public class LocalCacheImpl implements LocalCache {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
         if (!cache.containsKey(dataClass))
+            return false;
+        var foundData = cache.get(dataClass).getOrDefault(objectUUID, null);
+        if (foundData == null)
             return false;
         return cache.get(dataClass).containsKey(objectUUID);
     }
@@ -60,6 +66,8 @@ public class LocalCacheImpl implements LocalCache {
         foundData.updateLastUsage();
         foundData.deserialize(dataToSave);
         saveObject(foundData);
+        NetworkLogger
+                .info("[LocalCache] Updated " + foundData + " [" + foundData.getObjectUUID() + "]");
     }
 
     @Override
@@ -69,10 +77,15 @@ public class LocalCacheImpl implements LocalCache {
         if (!dataExist(dataClass, objectUUID))
             return false;
         IPipelineData data = cache.get(dataClass).remove(objectUUID);
-        data.markRemoval();
-        if (cache.get(dataClass).size() == 0)
-            cache.remove(dataClass);
+        deleteFromCache(data);
+        NetworkLogger.info("[LocalCache] Removed " + data + " [" + objectUUID + "]");
         return true;
+    }
+
+    private void deleteFromCache(IPipelineData pipelineData) {
+        cache.get(pipelineData.getClass()).remove(pipelineData.getObjectUUID());
+        if (cache.get(pipelineData.getClass()).size() == 0)
+            cache.remove(pipelineData.getClass());
     }
 
     @Override

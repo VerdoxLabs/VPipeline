@@ -1,9 +1,7 @@
 package de.verdox.vpipeline.api.pipeline.core;
 
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.verdox.vpipeline.api.NetworkParticipant;
-import de.verdox.vpipeline.api.pipeline.SynchronizedAccess;
 import de.verdox.vpipeline.api.pipeline.datatypes.DataRegistry;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
@@ -16,9 +14,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
 
 public interface Pipeline extends SystemPart {
     NetworkParticipant getNetworkParticipant();
@@ -56,4 +51,6 @@ public interface Pipeline extends SystemPart {
     <T extends IPipelineData> CompletableFuture<Boolean> exist(@NotNull Class<? extends T> type, @NotNull UUID uuid);
 
     <T extends IPipelineData> CompletableFuture<Boolean> delete(@NotNull Class<? extends T> type, @NotNull UUID uuid);
+
+    <T extends IPipelineData> @NotNull PipelineLock<T> createPipelineLock(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid);
 }

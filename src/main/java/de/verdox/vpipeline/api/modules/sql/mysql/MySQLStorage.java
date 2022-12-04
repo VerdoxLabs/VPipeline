@@ -28,7 +28,7 @@ public class MySQLStorage extends SQLStorage {
     public MySQLStorage(HikariDataSource hikariDataSource) {
         this.hikariDataSource = hikariDataSource;
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
-        NetworkLogger.getLogger().info("MySQL Global Storage connected");
+        NetworkLogger.info("MySQL Global Storage connected");
     }
 
     @Override

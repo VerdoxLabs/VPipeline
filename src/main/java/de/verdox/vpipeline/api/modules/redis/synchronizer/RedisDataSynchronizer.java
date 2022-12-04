@@ -4,12 +4,11 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParser;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
-import de.verdox.vpipeline.api.pipeline.SynchronizedAccess;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
-import de.verdox.vpipeline.api.pipeline.core.PipelineSynchronizer;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.Synchronizer;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
+import de.verdox.vpipeline.impl.util.CallbackUtil;
 import de.verdox.vpipeline.impl.util.RedisConnection;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -19,7 +18,6 @@ import org.redisson.api.listener.MessageListener;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.function.Consumer;
 
 /**
  * @version 1.0
@@ -31,29 +29,38 @@ public class RedisDataSynchronizer implements Synchronizer {
     private final MessageListener<DataBlock> messageListener;
     private final UUID senderUUID = UUID.randomUUID();
     private final AttachedPipeline attachedPipeline;
+    private Pipeline pipeline;
+    private final Class<? extends IPipelineData> dataClass;
 
-    RedisDataSynchronizer(@NotNull Pipeline pipeline, @NotNull RedisConnection redisConnection, @NotNull Class<? extends IPipelineData> dataClass) {
+    RedisDataSynchronizer(@NotNull Class<? extends IPipelineData> dataClass, @NotNull Pipeline pipeline, @NotNull RedisConnection redisConnection) {
+        this.dataClass = dataClass;
+        Objects.requireNonNull(dataClass, "data can't be null!");
+        Objects.requireNonNull(pipeline, "pipeline can't be null!");
+        Objects.requireNonNull(redisConnection, "redisConnection can't be null!");
+        this.pipeline = pipeline;
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
         this.attachedPipeline.attachPipeline(pipeline);
-        Objects.requireNonNull(redisConnection, "redisConnection can't be null!");
-        Objects.requireNonNull(dataClass, "dataClass can't be null!");
         this.dataTopic = redisConnection.getTopic(AnnotationResolver.getDataStorageClassifier(dataClass), dataClass);
         this.messageListener = (channel, dataBlock) -> {
             if (dataBlock.senderUUID.equals(senderUUID))
                 return;
-            IPipelineData data = pipeline.getLocalCache().loadObject(dataClass, dataBlock.dataUUID);
-            if (data == null)
+            IPipelineData remoteDataObject = pipeline.getLocalCache().loadObject(dataClass, dataBlock.dataUUID);
+            if (remoteDataObject == null)
                 return;
             if (dataBlock instanceof UpdateDataBlock updateDataBlock) {
                 NetworkLogger
-                        .getLogger()
-                        .fine("Received network sync for " + dataClass.getSimpleName() + " [" + data + " | " + dataBlock.dataUUID + "]");
-                data.onSync(data.deserialize(JsonParser
+                        .info("Received network sync for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
+                remoteDataObject.onSync(remoteDataObject.deserialize(JsonParser
                         .parseString(updateDataBlock.dataToUpdate)
                         .getAsJsonObject()));
             } else if (dataBlock instanceof RemoveDataBlock) {
-                data.markRemoval();
-                pipeline.getLocalCache().remove(dataClass, data.getObjectUUID());
+                NetworkLogger.info("Received network removal for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
+                if (!pipeline.getLocalCache().remove(dataClass, dataBlock.dataUUID))
+                    NetworkLogger
+                            .getLogger()
+                            .warning("Could not remove after network removal instruction [" + pipeline
+                                    .getLocalCache()
+                                    .dataExist(dataClass, remoteDataObject.getObjectUUID()) + "]");
             }
         };
         dataTopic.addListener(DataBlock.class, messageListener);
@@ -66,41 +73,40 @@ public class RedisDataSynchronizer implements Synchronizer {
 
     @Override
     public void pushUpdate(@NotNull IPipelineData data, @Nullable Runnable callback) {
-        Objects.requireNonNull(data, "vCoreData can't be null!");
-        if (data.isMarkedForRemoval())
-            return;
-        attachedPipeline.getAttachedPipeline()
-                        .getPipelineSynchronizer()
-                        .synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, data.getClass(), data.getObjectUUID(), () -> {
-                            var count = dataTopic.publish(new UpdateDataBlock(senderUUID, data.getObjectUUID(), attachedPipeline
-                                    .getGson()
-                                    .toJson(data.serialize())));
-                            NetworkLogger
-                                    .getLogger()
-                                    .fine("Pushed network sync to " + count + " clients for " + data
-                                            .getClass()
-                                            .getSimpleName() + " [" + data + " | " + data.getObjectUUID() + "]");
-                            if (callback != null)
-                                callback.run();
-                        });
+        try {
+            Objects.requireNonNull(dataClass, "vCoreData can't be null!");
+            Objects.requireNonNull(data, "data can't be null!");
+            Objects.requireNonNull(callback, "callback can't be null!");
+/*            if (data.isMarkedForRemoval()) {
+                NetworkLogger
+                        .getLogger()
+                        .warning("Pushupdate on old / removed data clients for " + data + " [" + data.getObjectUUID() + "]");
+                return;
+            }*/
+            var count = dataTopic.publish(new UpdateDataBlock(senderUUID, data.getObjectUUID(), attachedPipeline
+                    .getGson()
+                    .toJson(data.serialize())));
+            NetworkLogger
+                    .info("Pushed network sync to " + count + " clients for " + data + " [" + data.getObjectUUID() + "]");
+
+        } catch (Throwable e) {
+            e.printStackTrace();
+        } finally {
+            CallbackUtil.runIfNotNull(callback);
+        }
     }
 
     @Override
-    public void pushRemoval(@NotNull IPipelineData data, @Nullable Runnable callback) {
-        Objects.requireNonNull(data, "vCoreData can't be null!");
-        attachedPipeline
-                .getAttachedPipeline()
-                .load(data.getClass(), data.getObjectUUID())
-                .thenApply(pipelineLock -> pipelineLock.runOnWriteLock(() -> {
-                    dataTopic.publish(new RemoveDataBlock(senderUUID, data.getObjectUUID()));
-                    NetworkLogger
-                            .getLogger().fine("Pushed network removal for " + data
-                                    .getClass()
-                                    .getSimpleName() + " [" + data + " | " + data.getObjectUUID() + "]");
-                    data.markRemoval();
-                    if (callback != null)
-                        callback.run();
-                }));
+    public void pushRemoval(@NotNull UUID uuid, @Nullable Runnable callback) {
+        Objects.requireNonNull(uuid, "uuid can't be null!");
+        try {
+            dataTopic.publish(new RemoveDataBlock(senderUUID, uuid));
+            NetworkLogger.info("Pushed network removal for " + dataClass.getSimpleName() + " [" + uuid + "]");
+            /*            data.markRemoval();*/
+        } finally {
+            if (callback != null)
+                callback.run();
+        }
     }
 
     @Override

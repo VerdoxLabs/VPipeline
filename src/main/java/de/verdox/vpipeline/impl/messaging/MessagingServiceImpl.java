@@ -130,9 +130,9 @@ public class MessagingServiceImpl implements MessagingService {
 
     @Override
     public void shutdown() {
-        NetworkLogger.getLogger().info("Shutting down message transmitter");
+        NetworkLogger.info("Shutting down message transmitter");
         transmitter.shutdown();
-        NetworkLogger.getLogger().info("MessagingService is offline");
+        NetworkLogger.info("MessagingService is offline");
     }
 
     @Subscribe

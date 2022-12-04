@@ -13,16 +13,13 @@ import de.verdox.vpipeline.api.util.AnnotationResolver;
 import de.verdox.vpipeline.impl.util.RedisConnection;
 import org.jetbrains.annotations.NotNull;
 import org.redisson.api.RBucket;
-import org.redisson.api.RReadWriteLock;
 import org.redisson.client.codec.StringCodec;
 
 import javax.annotation.Nonnull;
-import java.time.Duration;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.Lock;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class RedisCache extends RedisConnection implements GlobalCache, RemoteStorage {
@@ -31,11 +28,11 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     public RedisCache(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
         super(clusterMode, addressArray, redisPassword);
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
-        NetworkLogger.getLogger().info("Redis GlobalCache connected");
+        NetworkLogger.info("Redis GlobalCache connected");
     }
 
     @Override
-    public JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public synchronized JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
         try {
             return JsonParser.parseString(getObjectCache(dataClass, objectUUID).get()).getAsJsonObject();
@@ -47,34 +44,37 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     }
 
     @Override
-    public boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public synchronized boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
-        return getObjectCache(dataClass, objectUUID).isExists();
+        var objectCache = getObjectCache(dataClass, objectUUID);
+        return objectCache.isExists();
     }
 
     @Override
-    public void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
+    public synchronized void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
         verifyInput(dataClass, objectUUID);
         RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
         objectCache.set(attachedPipeline.getGson().toJson(dataToSave));
+        NetworkLogger.info("[RedisCache] Saving to redis cache " + dataClass.getSimpleName() + " [" + objectCache + "]");
         updateExpireTime(dataClass, objectCache);
     }
 
     @Override
-    public boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public synchronized boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
         RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
+        NetworkLogger.info("[RedisCache] Removing from redis cache " + dataClass.getSimpleName() + " [" + objectCache + "]");
         return objectCache.delete();
     }
 
     @Override
-    public Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
+    public synchronized Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         return getKeys(dataClass).stream().map(s -> UUID.fromString(s.split(":")[1])).collect(Collectors.toSet());
     }
 
     @Override
-    public AttachedPipeline getAttachedPipeline() {
+    public synchronized AttachedPipeline getAttachedPipeline() {
         return attachedPipeline;
     }
 
@@ -116,8 +116,6 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
 
         if (properties.cleanOnNoUse())
             bucket.expire(java.time.Duration.ofSeconds(properties.timeUnit().toSeconds(properties.time())));
-        else
-            bucket.expire(Duration.ofHours(12));
     }
 
     private void verifyInput(@Nonnull Class<? extends IPipelineData> dataClass, @Nonnull @NotNull UUID objectUUID) {

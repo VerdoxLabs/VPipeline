@@ -3,14 +3,12 @@ package de.verdox.vpipeline.impl.pipeline.core;
 import com.google.gson.GsonBuilder;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.NetworkParticipant;
-import de.verdox.vpipeline.api.pipeline.SynchronizedAccess;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.core.PipelineLock;
 import de.verdox.vpipeline.api.pipeline.core.PipelineSynchronizer;
 import de.verdox.vpipeline.api.pipeline.datatypes.DataRegistry;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
-import de.verdox.vpipeline.api.pipeline.datatypes.Synchronizer;
 import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
 import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 import de.verdox.vpipeline.api.pipeline.enums.PreloadStrategy;
@@ -31,7 +29,6 @@ import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
-import java.util.stream.Collectors;
 
 public class PipelineImpl implements Pipeline {
 
@@ -63,7 +60,7 @@ public class PipelineImpl implements Pipeline {
         if (globalStorage != null)
             this.globalStorage.getAttachedPipeline().attachPipeline(this);
         this.ready = true;
-        NetworkLogger.getLogger().info("Pipeline started");
+        NetworkLogger.info("Pipeline started");
     }
 
     public void setNetworkParticipant(NetworkParticipant networkParticipant) {
@@ -138,10 +135,8 @@ public class PipelineImpl implements Pipeline {
         var future = new CompletableFuture<PipelineLock<T>>();
         executePipelineTask(future, () -> {
             var pipelineLock = createPipelineLock(dataClass, uuid);
-            pipelineLock.runOnReadLock(() -> {
-                load(dataClass, uuid, false);
-                future.complete(createPipelineLock(dataClass, uuid));
-            });
+            pipelineLock.runOnReadLock(() -> load(dataClass, uuid, false));
+            future.complete((PipelineLock<T>) pipelineLock);
             return null;
         });
         return future;
@@ -154,10 +149,9 @@ public class PipelineImpl implements Pipeline {
 
         var future = new CompletableFuture<PipelineLock<T>>();
         executePipelineTask(future, () -> {
-            createPipelineLock(dataClass, uuid).runOnWriteLock(() -> {
-                load(dataClass, uuid, true);
-                future.complete(createPipelineLock(dataClass, uuid));
-            });
+            var pipelineLock = createPipelineLock(dataClass, uuid);
+            pipelineLock.runOnWriteLock(() -> load(dataClass, uuid, true));
+            future.complete((PipelineLock<T>) pipelineLock);
             return null;
         });
         return future;
@@ -174,7 +168,7 @@ public class PipelineImpl implements Pipeline {
                 var pipelineLock = createPipelineLock(dataClass, uuid);
                 pipelineLock.runOnWriteLock(() -> {
                     if (!localCache.dataExist(dataClass, uuid))
-                        pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
+                        pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
                 });
 
             });
@@ -182,7 +176,7 @@ public class PipelineImpl implements Pipeline {
                 var pipelineLock = createPipelineLock(dataClass, uuid);
                 pipelineLock.runOnWriteLock(() -> {
                     if (!localCache.dataExist(dataClass, uuid))
-                        pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
+                        pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
                 });
             });
 
@@ -201,9 +195,7 @@ public class PipelineImpl implements Pipeline {
         Objects.requireNonNull(uuid, "uuid can't be null");
         var future = new CompletableFuture<Boolean>();
         executePipelineTask(future, () -> {
-            createPipelineLock(dataClass, uuid).runOnReadLock(() -> {
-                future.complete(checkExistence(dataClass, uuid));
-            });
+            createPipelineLock(dataClass, uuid).runOnReadLock(() -> future.complete(checkExistence(dataClass, uuid)));
             return null;
         });
         return future;
@@ -221,10 +213,12 @@ public class PipelineImpl implements Pipeline {
                     data.onDelete();
 
                 var deleted = getLocalCache().remove(dataClass, uuid);
-                if (data instanceof Synchronizer synchronizer) {
-                    synchronizer.pushRemoval(data, () -> {
-                    });
-                    data.markRemoval();
+
+                if (getSynchronizingService() != null) {
+                    getSynchronizingService()
+                            .getSynchronizer(this, dataClass)
+                            .pushRemoval(uuid, () -> {
+                            });
                 }
 
                 if (getGlobalCache() != null && getGlobalCache().dataExist(dataClass, uuid))
@@ -233,6 +227,7 @@ public class PipelineImpl implements Pipeline {
                     deleted &= getGlobalStorage().remove(dataClass, uuid);
 
                 future.complete(deleted);
+                NetworkLogger.info("Deleted: " + dataClass + " with " + uuid);
             });
             return null;
         });
@@ -242,19 +237,22 @@ public class PipelineImpl implements Pipeline {
     private <T extends IPipelineData> T load(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid, boolean createIfNotExist) {
         if (localCache.dataExist(dataClass, uuid)) {
             return localCache.loadObject(dataClass, uuid);
-        } else if (globalStorage != null && globalStorage.dataExist(dataClass, uuid) && AnnotationResolver
-                .getDataProperties(dataClass)
-                .dataContext()
-                .isStorageAllowed())
-            pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
-        else if (globalCache != null && globalCache.dataExist(dataClass, uuid) && AnnotationResolver
+        } else if (globalCache != null && globalCache.dataExist(dataClass, uuid) && AnnotationResolver
                 .getDataProperties(dataClass)
                 .dataContext()
                 .isCacheAllowed())
-            pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
+            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, () -> NetworkLogger
+                    .info("CACHE -> Local | " + dataClass + " [" + uuid + "]"));
+        else if (globalStorage != null && globalStorage.dataExist(dataClass, uuid) && AnnotationResolver
+                .getDataProperties(dataClass)
+                .dataContext()
+                .isStorageAllowed())
+            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, () -> NetworkLogger
+                    .info("GLOBAL -> Local | " + dataClass.getSimpleName() + " [" + uuid + "]"));
         else {
             if (!createIfNotExist)
                 return null;
+            NetworkLogger.info("Creating new " + dataClass.getSimpleName() + " [" + uuid + "]");
             return createNewData(dataClass, uuid);
         }
         return localCache.loadObject(dataClass, uuid);
@@ -282,8 +280,8 @@ public class PipelineImpl implements Pipeline {
 /*        if (data.isMarkedForRemoval())
             return;*/
         data.cleanUp();
-        pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, type, uuid, null);
-        pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, type, uuid, null);
+        pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, type, uuid, null);
+        pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, type, uuid, null);
         getLocalCache().remove(type, uuid);
     }
 
@@ -296,7 +294,7 @@ public class PipelineImpl implements Pipeline {
         Set<UUID> alreadyLoaded = new HashSet<>();
         if (globalCache != null && dataProperties.dataContext().isStorageAllowed())
             globalCache.getSavedUUIDs(type).forEach(uuid -> {
-                if (pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid, null))
+                if (pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid, null))
                     alreadyLoaded.add(uuid);
             });
         if (globalStorage != null && dataProperties.dataContext().isCacheAllowed())
@@ -304,7 +302,7 @@ public class PipelineImpl implements Pipeline {
                     .getSavedUUIDs(type)
                     .stream()
                     .filter(uuid -> !alreadyLoaded.contains(uuid))
-                    .forEach(uuid -> pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid, null));
+                    .forEach(uuid -> pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid, null));
     }
 
     private <T extends IPipelineData> T createNewData(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
@@ -319,9 +317,9 @@ public class PipelineImpl implements Pipeline {
         localCache.saveObject(pipelineData);
 
         if (AnnotationResolver.getDataProperties(dataClass).dataContext().isCacheAllowed())
-            pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, dataClass, uuid, null);
+            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, dataClass, uuid, null);
         if (AnnotationResolver.getDataProperties(dataClass).dataContext().isStorageAllowed())
-            pipelineSynchronizer.doSynchronisation(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, dataClass, uuid, null);
+            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, dataClass, uuid, null);
         return pipelineData;
     }
 
@@ -332,12 +330,12 @@ public class PipelineImpl implements Pipeline {
     @Override
     public synchronized void shutdown() {
         if (!this.ready) {
-            NetworkLogger.getLogger().info("Pipeline is already offline");
+            NetworkLogger.info("Pipeline is already offline");
             return;
         }
         this.ready = false;
 
-        NetworkLogger.getLogger().info("Shutting down pipeline");
+        NetworkLogger.info("Shutting down pipeline");
         getExecutorService().shutdown();
         try {
             var worked = getExecutorService().awaitTermination(10, TimeUnit.SECONDS);
@@ -347,13 +345,13 @@ public class PipelineImpl implements Pipeline {
             throw new RuntimeException(e);
         }
 
-        NetworkLogger.getLogger().info("Saving all data");
+        NetworkLogger.info("Saving all data");
         saveAll();
 
-        NetworkLogger.getLogger().info("Shutting down pipeline synchronizer");
+        NetworkLogger.info("Shutting down pipeline synchronizer");
         getPipelineSynchronizer().shutdown();
 
-        NetworkLogger.getLogger().info("Shutting down data providers");
+        NetworkLogger.info("Shutting down data providers");
 
         if (getGlobalStorage() != null)
             getGlobalStorage().shutdown();
@@ -362,7 +360,7 @@ public class PipelineImpl implements Pipeline {
         if (getSynchronizingService() != null)
             getSynchronizingService().shutdown();
         getLocalCache().shutdown();
-        NetworkLogger.getLogger().info("Pipeline offline");
+        NetworkLogger.info("Pipeline offline");
     }
 
     private void executePipelineTask(CompletableFuture<?> future, Callable<?> callable) {
@@ -385,7 +383,8 @@ public class PipelineImpl implements Pipeline {
     }
 
 
-    <T extends IPipelineData> @NotNull PipelineLock<T> createPipelineLock(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
+    @Override
+    public <T extends IPipelineData> @NotNull PipelineLock<T> createPipelineLock(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         Objects.requireNonNull(dataClass, "Dataclass can't be null");
         Objects.requireNonNull(uuid, "UUID can't be null");
 
@@ -399,7 +398,7 @@ public class PipelineImpl implements Pipeline {
             readLock = new DummyLock();
             writeLock = new DummyLock();
         }
-        return new PipelineLockImpl<>(this, dataClass, uuid, readLock, writeLock);
+        return new PipelineLockImpl<>(this, pipelineSynchronizer, dataClass, uuid, readLock, writeLock);
     }
 
     static class DummyLock implements Lock {

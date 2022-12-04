@@ -29,6 +29,6 @@ public class ClientOfflinePing extends Ping {
 
     @Override
     public void onPingReceive(Object[] instructionData) {
-        NetworkLogger.getLogger().info("Client Online: " + instructionData[0]);
+        NetworkLogger.info("Client Online: " + instructionData[0]);
     }
 }

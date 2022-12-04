@@ -1,16 +1,13 @@
 package de.verdox.vpipeline.api.pipeline.datatypes;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.InstanceCreator;
 import com.google.gson.JsonElement;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
-import de.verdox.vpipeline.api.pipeline.SynchronizedAccess;
-import de.verdox.vpipeline.api.pipeline.core.Pipeline;
-import de.verdox.vpipeline.api.pipeline.core.PipelineSynchronizer;
-import de.verdox.vpipeline.api.util.AnnotationResolver;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
+import de.verdox.vpipeline.api.pipeline.core.Pipeline;
+import de.verdox.vpipeline.api.util.AnnotationResolver;
+import de.verdox.vpipeline.impl.util.CallbackUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.InvocationTargetException;
@@ -18,7 +15,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 /**
  * @version 1.0
@@ -34,7 +30,6 @@ public abstract class PipelineData implements IPipelineData {
     private transient final long cleanTime;
     private transient final TimeUnit cleanTimeUnit;
     private transient long lastUse = System.currentTimeMillis();
-    private transient boolean markedForRemoval = false;
     private transient final AttachedPipeline attachedPipeline;
 
     public PipelineData(@NotNull Pipeline pipeline, @NotNull UUID objectUUID) {
@@ -51,27 +46,7 @@ public abstract class PipelineData implements IPipelineData {
         if (pipeline.getSynchronizingService() != null)
             this.synchronizer = pipeline.getSynchronizingService().getSynchronizer(pipeline, this);
         else
-            this.synchronizer = new Synchronizer() {
-                @Override
-                public void cleanUp() {
-
-                }
-
-                @Override
-                public void pushUpdate(IPipelineData pipelineData, Runnable callback) {
-
-                }
-
-                @Override
-                public void pushRemoval(IPipelineData pipelineData, Runnable callback) {
-
-                }
-
-                @Override
-                public void shutdown() {
-
-                }
-            };
+            this.synchronizer = new DummyDataSynchronizer();
         PipelineDataProperties dataProperties = AnnotationResolver.getDataProperties(getClass());
         this.cleanTime = dataProperties.time();
         this.cleanTimeUnit = dataProperties.timeUnit();
@@ -85,7 +60,6 @@ public abstract class PipelineData implements IPipelineData {
     @Override
     public JsonElement serialize() {
         synchronized (this) {
-            markedForRemoval = false;
             return attachedPipeline.getGson().toJsonTree(this);
         }
     }
@@ -93,25 +67,14 @@ public abstract class PipelineData implements IPipelineData {
     @Override
     public String deserialize(JsonElement jsonObject) {
         synchronized (this) {
-            markedForRemoval = false;
             attachedPipeline.getGson().fromJson(jsonObject, getClass());
             return attachedPipeline.getGson().toJson(jsonObject);
         }
     }
 
     @Override
-    public Synchronizer getSynchronizer() {
+    public @NotNull Synchronizer getSynchronizer() {
         return synchronizer;
-    }
-
-    @Override
-    public void markRemoval() {
-        markedForRemoval = true;
-    }
-
-    @Override
-    public boolean isMarkedForRemoval() {
-        return markedForRemoval;
     }
 
     @Override
@@ -120,32 +83,10 @@ public abstract class PipelineData implements IPipelineData {
     }
 
     @Override
-    public CompletableFuture<Boolean> save(boolean saveToStorage) {
-        synchronized (this) {
-            var future = new CompletableFuture<Boolean>();
-            updateLastUsage();
-            //TODO: Completable Future
-            if (this.synchronizer == null) {
-                attachedPipeline.getAttachedPipeline()
-                                .getPipelineSynchronizer()
-                                .synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, getClass(), getObjectUUID(), () -> {
-                                    future.complete(true);
-                                });
-            } else {
-                this.synchronizer.pushUpdate(this, () -> {
-                    if (!saveToStorage) {
-                        future.complete(true);
-                        return;
-                    }
-                    attachedPipeline.getAttachedPipeline()
-                                    .getPipelineSynchronizer()
-                                    .synchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, getClass(), getObjectUUID(), () -> {
-                                        future.complete(true);
-                                    });
-                });
-            }
-            return future;
-        }
+    public CompletableFuture<Void> save(boolean saveToStorage) {
+        updateLastUsage();
+        //TODO: Completable Future
+        return attachedPipeline.getAttachedPipeline().getPipelineSynchronizer().sync(this, saveToStorage);
     }
 
     public static <S extends IPipelineData> S instantiateData(@NotNull Pipeline pipeline, @NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
@@ -165,5 +106,30 @@ public abstract class PipelineData implements IPipelineData {
     @Override
     public AttachedPipeline getAttachedPipeline() {
         return attachedPipeline;
+    }
+
+    static class DummyDataSynchronizer implements Synchronizer {
+
+        @Override
+        public void shutdown() {
+
+        }
+
+        @Override
+        public void cleanUp() {
+
+        }
+
+        @Override
+        public void pushUpdate(@NotNull IPipelineData data, Runnable callback) {
+            NetworkLogger.getLogger().warning("Syncing with dummy data synchronizer");
+            CallbackUtil.runIfNotNull(callback);
+        }
+
+        @Override
+        public void pushRemoval(@NotNull UUID uuid, Runnable callback) {
+            NetworkLogger.getLogger().warning("Removing with dummy data synchronizer");
+            CallbackUtil.runIfNotNull(callback);
+        }
     }
 }

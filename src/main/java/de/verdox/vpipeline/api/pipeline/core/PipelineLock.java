@@ -18,14 +18,15 @@ public interface PipelineLock<T extends IPipelineData> {
 
     UUID getObjectUUID();
 
-    PipelineLock<T> runOnReadLock(Runnable callable);
+    void runOnReadLock(Runnable callable);
 
-    PipelineLock<T> runOnWriteLock(Runnable callable);
+    void runOnWriteLock(Runnable callable);
 
     //TODO: Implement callback function
     PipelineLock<T> performReadOperation(Consumer<T> reader);
 
     PipelineLock<T> performWriteOperation(Consumer<T> writer, boolean pushToNetwork);
+    PipelineLock<T> performSaveOperation(boolean saveToStorage);
 
     default PipelineLock<T> performWriteOperation(Consumer<T> writer) {
         return performWriteOperation(writer, true);

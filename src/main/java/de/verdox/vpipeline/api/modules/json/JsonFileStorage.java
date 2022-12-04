@@ -32,7 +32,7 @@ public class JsonFileStorage implements GlobalStorage {
     public JsonFileStorage(Path path) {
         this.path = path;
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
-        NetworkLogger.getLogger().info("JsonFileStorage loaded");
+        NetworkLogger.info("JsonFileStorage loaded");
     }
 
     @Override

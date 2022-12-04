@@ -33,7 +33,7 @@ public class ClientOnlinePing extends Ping {
         UUID clientUUID = (UUID) instructionData[0];
         getCurrentClient().pipeline().load(NetworkClient.class, clientUUID).whenComplete((networkClient, throwable) -> {
             if (networkClient != null)
-                NetworkLogger.getLogger().info("Client Online: " + instructionData[0]);
+                NetworkLogger.info("Client Online: " + instructionData[0]);
         });
 
     }

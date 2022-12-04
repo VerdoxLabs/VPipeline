@@ -11,4 +11,17 @@ public interface NetworkLogger {
 
         return logger;
     }
+
+    static void info(String message) {
+        var caller = Thread.currentThread().getStackTrace()[3];
+
+        getLogger().info("[" + Thread
+                .currentThread()
+                .getName() + " | " + extractClassName(caller.getClassName()) + ":" + caller.getMethodName()+"["+caller.getLineNumber()+"]" + "] " +  message);
+    }
+
+    private static String extractClassName(String longName){
+        var split = longName.split("\\.");
+        return split[split.length -1];
+    }
 }

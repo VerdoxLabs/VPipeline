@@ -38,7 +38,7 @@ public class MessageFactoryImpl implements MessageFactory {
         if (instructionTypes.containsKey(id))
             throw new IllegalStateException("Id already registered: " + id);
         instructionTypes.put(id, instructionType);
-        NetworkLogger.getLogger().info("Instruction " + instructionType.getSimpleName() + " registered with id " + id);
+        NetworkLogger.info("Instruction " + instructionType.getSimpleName() + " registered with id " + id);
     }
 
     @Override

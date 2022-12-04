@@ -4,6 +4,7 @@ import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @version 1.0
@@ -13,6 +14,8 @@ import java.util.UUID;
 public interface PipelineSynchronizer extends SystemPart {
 
     void synchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback);
+
+    CompletableFuture<Void> sync(@NotNull IPipelineData iPipelineData, boolean syncWithStorage);
     default void synchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         synchronize(source, destination, dataClass, objectUUID, null);
     }
@@ -20,6 +23,6 @@ public interface PipelineSynchronizer extends SystemPart {
     enum DataSourceType {
         LOCAL,
         GLOBAL_CACHE,
-        GLOBAL_STORAGE
+        GLOBAL_STORAGE;
     }
 }

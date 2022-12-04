@@ -6,10 +6,12 @@ import de.verdox.vpipeline.api.pipeline.core.PipelineSynchronizer;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.DataProvider;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
+import de.verdox.vpipeline.impl.util.CallbackUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements PipelineSynchronizer {
@@ -17,13 +19,22 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
     public void synchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback) {
         verifyInput(source, destination, dataClass, objectUUID);
         pipeline.getExecutorService()
-                .submit(() -> doSynchronisation(source, destination, dataClass, objectUUID, callback));
+                .submit(() -> doSynchronize(source, destination, dataClass, objectUUID, callback));
     }
 
-    boolean doSynchronisation(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback) {
+    @Override
+    public CompletableFuture<Void> sync(@NotNull IPipelineData iPipelineData, boolean syncWithStorage) {
+        var future = new CompletableFuture<Void>();
+        pipeline.getExecutorService().submit(() -> {
+            doSync(iPipelineData, syncWithStorage, () -> future.complete(null));
+        });
+        return future;
+    }
 
+    boolean doSynchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback) {
         if (source.equals(destination)) {
             NetworkLogger.getLogger().warning("Can't sync from " + source + " to " + destination);
+            CallbackUtil.runIfNotNull(callback);
             return false;
         }
         if ((pipeline.getGlobalCache() == null || !AnnotationResolver
@@ -32,7 +43,8 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
                 .isCacheAllowed()) && (source.equals(DataSourceType.GLOBAL_CACHE) || destination.equals(DataSourceType.GLOBAL_CACHE))) {
             NetworkLogger
                     .getLogger()
-                    .warning("Can't sync because either no global cache or not allowed for " + dataClass.getSimpleName());
+                    .warning("Global cache not allowed for " + dataClass.getSimpleName());
+            CallbackUtil.runIfNotNull(callback);
             return false;
         }
         if ((pipeline.getGlobalStorage() == null || !AnnotationResolver
@@ -41,7 +53,8 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
                 .isStorageAllowed()) && (source.equals(DataSourceType.GLOBAL_STORAGE) || destination.equals(DataSourceType.GLOBAL_STORAGE))) {
             NetworkLogger
                     .getLogger()
-                    .warning("Can't sync because either no global storage or not allowed for " + dataClass.getSimpleName());
+                    .warning("Global storage not allowed for " + dataClass.getSimpleName());
+            CallbackUtil.runIfNotNull(callback);
             return false;
         }
 
@@ -50,6 +63,7 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
             NetworkLogger
                     .getLogger()
                     .warning("Can't sync because data does not exist in " + source + " for " + dataClass.getSimpleName());
+            CallbackUtil.runIfNotNull(callback);
             return false;
         }
 
@@ -58,17 +72,36 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
             NetworkLogger
                     .getLogger()
                     .warning("Data is null in " + source + " for " + dataClass.getSimpleName());
+            CallbackUtil.runIfNotNull(callback);
             return false;
         }
         DataProvider destinationProvider = getProvider(destination);
         NetworkLogger
                 .getLogger()
-                .fine("Attempting to sync from "+source+" to "+destination+" for "+dataClass.getSimpleName()+" ["+objectUUID+"]");
+                .fine("Sync from " + source + " to " + destination + " for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
         destinationProvider.save(dataClass, objectUUID, data);
 
-        if (callback != null)
-            callback.run();
+        CallbackUtil.runIfNotNull(callback);
         return true;
+    }
+
+    void doSync(@NotNull IPipelineData iPipelineData, boolean syncWithStorage, Runnable callback) {
+        doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, iPipelineData.getClass(), iPipelineData.getObjectUUID(), () -> {
+            if (syncWithStorage)
+                doSynchronize(DataSourceType.LOCAL, DataSourceType.GLOBAL_STORAGE, iPipelineData.getClass(), iPipelineData.getObjectUUID(), () -> {
+                    syncLocalInstances(iPipelineData.getClass(), iPipelineData.getObjectUUID(), () -> CallbackUtil.runIfNotNull(callback));
+                });
+            else
+                syncLocalInstances(iPipelineData.getClass(), iPipelineData.getObjectUUID(), () -> CallbackUtil.runIfNotNull(callback));
+        });
+    }
+
+    void syncLocalInstances(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback) {
+        var localObject = pipeline.getLocalCache().loadObjectOrThrow(dataClass, objectUUID);
+        var synchronizer = localObject.getSynchronizer();
+        NetworkLogger
+                .info("Syncing local instances for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
+        synchronizer.pushUpdate(localObject, callback);
     }
 
     @Override
@@ -76,7 +109,6 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
         try {
             pipeline.getExecutorService().shutdown();
             pipeline.getExecutorService().awaitTermination(5, TimeUnit.SECONDS);
-            //TODO: Print Log Message
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
