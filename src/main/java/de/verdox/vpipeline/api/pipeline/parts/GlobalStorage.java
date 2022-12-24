@@ -28,15 +28,19 @@ public interface GlobalStorage extends DataProvider {
         return AnnotationResolver.getDataStorageClassifier(dataClass) + separator + suffix;
     }
 
-    static GlobalStorage buildMongoDBStorage(String host, String database, int port, String user, String password){
-        return new MongoDBStorage(host, database, port, user, password);
+    static GlobalStorage buildMongoDBStorage(String host, String database, int port, String user, String password) {
+        return new MongoDBStorage(host, database, port, user, password, "");
     }
 
-    static GlobalStorage buildJsonStorage(Path path){
+    static GlobalStorage buildMongoDBStorage(String url) {
+        return new MongoDBStorage("", "", 0, "", "", url);
+    }
+
+    static GlobalStorage buildJsonStorage(Path path) {
         return new JsonFileStorage(path);
     }
 
-    static GlobalStorage buildSQLStorage(HikariDataSource hikariDataSource){
+    static GlobalStorage buildSQLStorage(HikariDataSource hikariDataSource) {
         return new MySQLStorage(hikariDataSource);
     }
 }

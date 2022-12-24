@@ -42,7 +42,9 @@ public interface Message extends Serializable {
 
     default <T> T getData(int index, Class<? extends T> type) {
         if (!isTypeOf(index, type))
-            throw new ClassCastException("Cannot cast data in index[" + index + "] to " + type + "!");
+            throw new ClassCastException("Cannot cast data in index[" + index + "] to " + type + " because it is " + dataToSend()[index]
+                    .getClass()
+                    .getSimpleName());
         return type.cast(dataToSend()[index]);
     }
 }

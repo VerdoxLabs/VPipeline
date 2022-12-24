@@ -12,10 +12,27 @@ import de.verdox.vpipeline.api.util.AnnotationResolver;
 
 import java.io.IOException;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
-public record DataReference<T extends IPipelineData>(PipelineLock<T> pipelineLock) {
-    public static <T extends IPipelineData> DataReference<T> of(PipelineLock<T> pipelineLock) {
-        return new DataReference<>(pipelineLock);
+public record DataReference<T extends IPipelineData>(Pipeline pipeline, Class<? extends T> type, UUID uuid) {
+    public static <T extends IPipelineData> DataReference<T> of(Pipeline pipeline, Class<? extends T> type, UUID uuid) {
+        return new DataReference<>(pipeline, type, uuid);
+    }
+
+    public CompletableFuture<Boolean> exists() {
+        return pipeline.exist(type, uuid);
+    }
+
+    public CompletableFuture<Boolean> delete() {
+        return pipeline.delete(type, uuid);
+    }
+
+    public CompletableFuture<PipelineLock<T>> loadOrCreate() {
+        return pipeline.loadOrCreate(type, uuid);
+    }
+
+    public CompletableFuture<PipelineLock<T>> load() {
+        return pipeline.load(type, uuid);
     }
 
     public static class ReferenceAdapter extends TypeAdapter<DataReference<?>> {
@@ -27,11 +44,11 @@ public record DataReference<T extends IPipelineData>(PipelineLock<T> pipelineLoc
 
         @Override
         public void write(JsonWriter jsonWriter, DataReference<?> dataReference) throws IOException {
-            var storageID = AnnotationResolver.getDataStorageIdentifier(dataReference.pipelineLock.getObjectType());
+            var storageID = AnnotationResolver.getDataStorageIdentifier(dataReference.type());
             jsonWriter
                     .beginObject()
                     .name("uuid")
-                    .value(dataReference.pipelineLock().getObjectUUID().toString())
+                    .value(dataReference.uuid().toString())
                     .name("type")
                     .value(storageID)
                     .endObject();
@@ -71,7 +88,7 @@ public record DataReference<T extends IPipelineData>(PipelineLock<T> pipelineLoc
                 NetworkLogger.getLogger().warning("Error while reading data reference. UUID could not be found");
                 return null;
             }
-            return new DataReference<>(pipeline.createPipelineLock(type, uuid));
+            return new DataReference<>(pipeline, type, uuid);
         }
     }
 }

@@ -44,7 +44,7 @@ public abstract class PipelineData implements IPipelineData {
 
         this.objectUUID = objectUUID;
         if (pipeline.getSynchronizingService() != null)
-            this.synchronizer = pipeline.getSynchronizingService().getSynchronizer(pipeline, this);
+            this.synchronizer = pipeline.getSynchronizingService().getOrCreate(pipeline, this);
         else
             this.synchronizer = new DummyDataSynchronizer();
         PipelineDataProperties dataProperties = AnnotationResolver.getDataProperties(getClass());
@@ -130,6 +130,11 @@ public abstract class PipelineData implements IPipelineData {
         public void pushRemoval(@NotNull UUID uuid, Runnable callback) {
             NetworkLogger.getLogger().warning("Removing with dummy data synchronizer");
             CallbackUtil.runIfNotNull(callback);
+        }
+
+        @Override
+        public void pushCreation(@NotNull IPipelineData data, Runnable callback) {
+
         }
     }
 }

@@ -42,8 +42,7 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
                 .dataContext()
                 .isCacheAllowed()) && (source.equals(DataSourceType.GLOBAL_CACHE) || destination.equals(DataSourceType.GLOBAL_CACHE))) {
             NetworkLogger
-                    .getLogger()
-                    .warning("Global cache not allowed for " + dataClass.getSimpleName());
+                    .fine("Global cache not allowed for " + dataClass.getSimpleName());
             CallbackUtil.runIfNotNull(callback);
             return false;
         }
@@ -52,8 +51,7 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
                 .dataContext()
                 .isStorageAllowed()) && (source.equals(DataSourceType.GLOBAL_STORAGE) || destination.equals(DataSourceType.GLOBAL_STORAGE))) {
             NetworkLogger
-                    .getLogger()
-                    .warning("Global storage not allowed for " + dataClass.getSimpleName());
+                    .fine("Global storage not allowed for " + dataClass.getSimpleName());
             CallbackUtil.runIfNotNull(callback);
             return false;
         }
@@ -61,7 +59,6 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
         DataProvider sourceProvider = getProvider(source);
         if (!sourceProvider.dataExist(dataClass, objectUUID)) {
             NetworkLogger
-                    .getLogger()
                     .warning("Can't sync because data does not exist in " + source + " for " + dataClass.getSimpleName());
             CallbackUtil.runIfNotNull(callback);
             return false;
@@ -70,14 +67,12 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
         JsonElement data = sourceProvider.loadData(dataClass, objectUUID);
         if (data == null) {
             NetworkLogger
-                    .getLogger()
                     .warning("Data is null in " + source + " for " + dataClass.getSimpleName());
             CallbackUtil.runIfNotNull(callback);
             return false;
         }
         DataProvider destinationProvider = getProvider(destination);
         NetworkLogger
-                .getLogger()
                 .fine("Sync from " + source + " to " + destination + " for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
         destinationProvider.save(dataClass, objectUUID, data);
 
@@ -100,18 +95,18 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
         var localObject = pipeline.getLocalCache().loadObjectOrThrow(dataClass, objectUUID);
         var synchronizer = localObject.getSynchronizer();
         NetworkLogger
-                .info("Syncing local instances for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
+                .fine("Syncing local instances for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
         synchronizer.pushUpdate(localObject, callback);
     }
 
     @Override
     public void shutdown() {
-        try {
+/*        try {
             pipeline.getExecutorService().shutdown();
             pipeline.getExecutorService().awaitTermination(5, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             e.printStackTrace();
-        }
+        }*/
     }
 
     private DataProvider getProvider(@NotNull DataSourceType destination) {

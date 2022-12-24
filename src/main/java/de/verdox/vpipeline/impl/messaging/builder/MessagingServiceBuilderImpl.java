@@ -38,7 +38,6 @@ public class MessagingServiceBuilderImpl implements MessagingServiceBuilder {
         if (transmitter == null)
             throw new NullPointerException("Transmitter was not set during building phase.");
         MessagingServiceImpl messagingService = new MessagingServiceImpl(identifier, transmitter);
-        transmitter.setMessagingService(messagingService);
         NetworkLogger.info("Building messaging service");
         return messagingService;
     }

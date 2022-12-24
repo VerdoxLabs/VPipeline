@@ -1,18 +1,17 @@
 package de.verdox.vpipeline.api.messaging.instruction.types;
 
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.annotations.InstructionInfo;
 import de.verdox.vpipeline.api.messaging.instruction.Responder;
 import de.verdox.vpipeline.api.messaging.instruction.SimpleInstruction;
+import de.verdox.vpipeline.api.messaging.instruction.TransmittedData;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 22.06.2022 21:15
- */
+import java.util.concurrent.*;
+import java.util.function.BiConsumer;
 
 /**
  * Instruction to query data remotely.
@@ -21,21 +20,54 @@ import java.util.concurrent.CompletableFuture;
  */
 @InstructionInfo(awaitsResponse = true)
 public abstract class Query<T> extends SimpleInstruction<T> implements Responder {
-    private final FutureResponse<T> future = new FutureResponse<>();
+
 
     public Query(@NotNull UUID uuid) {
         super(uuid);
     }
 
-    protected abstract T interpretResponse(Object[] responseData);
+    /**
+     * Used to interpret the data received from a response to complete the CompletableFuture object
+     *
+     * @param responseData Data received as response
+     * @return The interpreted response value
+     */
+    protected abstract T interpretResponse(TransmittedData responseData);
 
     @Override
-    public final void onQueryAnswerReceive(Object[] instructionData, Object[] responseData) {
-        future.complete(interpretResponse(responseData));
+    public void onReceive(TransmittedData transmittedData) {
+
     }
 
     @Override
-    public FutureResponse<T> getFuture() {
-        return future;
+    public boolean onSend(TransmittedData instructionData) {
+        var answer = respondToData(instructionData);
+        if (answer != null && answer.length >= 1) {
+            NetworkLogger.fine("[" + getCurrentClient()
+                    .messagingService()
+                    .getSessionIdentifier() + "] Query was answered locally");
+            var responseData = new TransmittedData(instructionData.transmitter(), instructionData.transmitterIdentifier(), answer);
+            onResponseReceive(instructionData, responseData);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Executed whenever an answer to this query is received
+     *
+     * @param instructionData The original instruction data.
+     * @param responseData    The response to the original instruction data
+     */
+    @Override
+    public final void onResponseReceive(TransmittedData instructionData, TransmittedData responseData) {
+        if (responseData.data() == null || responseData.data().length == 0)
+            return;
+        response.complete(responseData.transmitter(), interpretResponse(responseData));
+    }
+
+    @Override
+    public boolean respondToItself() {
+        return true;
     }
 }

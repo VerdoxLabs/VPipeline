@@ -19,4 +19,9 @@ public interface Synchronizer extends SystemPart {
      * Notifies other Servers that hold this data to delete it from local Cache
      */
     void pushRemoval(@NotNull UUID uuid, Runnable callback);
+
+    /**
+     * Notifies other Servers that a data with this uuid was created, and they should load it to local cache
+     */
+    void pushCreation(@NotNull IPipelineData data, Runnable callback);
 }

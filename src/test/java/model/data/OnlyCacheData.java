@@ -1,4 +1,4 @@
-package model;
+package model.data;
 
 import de.verdox.vpipeline.api.pipeline.annotations.DataStorageIdentifier;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
-@DataStorageIdentifier(identifier = "model.OnlyCacheData")
+@DataStorageIdentifier(identifier = "model.data.OnlyCacheData")
 @PipelineDataProperties(dataContext = DataContext.CACHE_ONLY)
 public class OnlyCacheData extends PipelineData {
     public OnlyCacheData(@NotNull Pipeline pipeline, @NotNull UUID objectUUID) {

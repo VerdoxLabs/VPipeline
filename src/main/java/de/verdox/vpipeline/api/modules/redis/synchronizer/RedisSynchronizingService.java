@@ -31,7 +31,7 @@ public class RedisSynchronizingService implements SynchronizingService {
     }
 
     @Override
-    public Synchronizer getSynchronizer(@NotNull Pipeline pipeline, @NotNull Class<? extends IPipelineData> type) {
+    public Synchronizer getOrCreate(@NotNull Pipeline pipeline, @NotNull Class<? extends IPipelineData> type) {
         cache.computeIfAbsent(type, aClass -> new RedisDataSynchronizer(type, pipeline, redisConnection));
         return cache.get(type);
     }

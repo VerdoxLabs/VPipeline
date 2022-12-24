@@ -4,16 +4,11 @@ import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.annotations.InstructionInfo;
 import de.verdox.vpipeline.api.messaging.instruction.Responder;
 import de.verdox.vpipeline.api.messaging.instruction.SimpleInstruction;
+import de.verdox.vpipeline.api.messaging.instruction.TransmittedData;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 23.06.2022 00:49
- */
 
 /**
  * Instruction that works only one way. The sender won't wait for any confirmation.
@@ -21,34 +16,32 @@ import java.util.concurrent.CompletableFuture;
 
 @InstructionInfo(awaitsResponse = false)
 public abstract class Ping extends SimpleInstruction<Boolean> implements Responder {
-    private final FutureResponse<Boolean> future = new FutureResponse<>();
 
     public Ping(@NotNull UUID uuid) {
         super(uuid);
     }
 
-    public abstract void onPingReceive(Object[] instructionData);
+    public abstract void onPingReceive(TransmittedData instructionData);
 
     @Override
-    public final boolean onSend(Object[] instructionData) {
-        future.complete(true);
+    public final boolean onSend(TransmittedData instructionData) {
+        response.complete(instructionData.transmitter(), true);
         return true;
     }
 
     @Override
-    public final Object[] answerQuery(Object[] instructionData) {
-        onPingReceive(instructionData);
-        return new Object[]{true};
+    public void onReceive(TransmittedData transmittedData) {
+        onPingReceive(transmittedData);
     }
 
     @Override
-    public final void onQueryAnswerReceive(Object[] instructionData, Object[] responseData) {
-        future.complete(true);
+    public Object[] respondToData(TransmittedData instructionData) {
+        return new Object[0];
     }
 
     @Override
-    public final FutureResponse<Boolean> getFuture() {
-        return future;
+    public final void onResponseReceive(TransmittedData instructionData, TransmittedData responseData) {
+        response.complete(responseData.transmitter(), true);
     }
 
     @Override

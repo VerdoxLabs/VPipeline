@@ -45,22 +45,32 @@ public class RedisDataSynchronizer implements Synchronizer {
             if (dataBlock.senderUUID.equals(senderUUID))
                 return;
             IPipelineData remoteDataObject = pipeline.getLocalCache().loadObject(dataClass, dataBlock.dataUUID);
-            if (remoteDataObject == null)
-                return;
-            if (dataBlock instanceof UpdateDataBlock updateDataBlock) {
-                NetworkLogger
-                        .info("Received network sync for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
-                remoteDataObject.onSync(remoteDataObject.deserialize(JsonParser
-                        .parseString(updateDataBlock.dataToUpdate)
-                        .getAsJsonObject()));
-            } else if (dataBlock instanceof RemoveDataBlock) {
-                NetworkLogger.info("Received network removal for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
-                if (!pipeline.getLocalCache().remove(dataClass, dataBlock.dataUUID))
+
+            if (remoteDataObject != null) {
+                if (dataBlock instanceof UpdateDataBlock updateDataBlock) {
                     NetworkLogger
-                            .getLogger()
-                            .warning("Could not remove after network removal instruction [" + pipeline
-                                    .getLocalCache()
-                                    .dataExist(dataClass, remoteDataObject.getObjectUUID()) + "]");
+                            .fine("Received network sync for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
+                    remoteDataObject.onSync(remoteDataObject.deserialize(JsonParser
+                            .parseString(updateDataBlock.dataToUpdate)
+                            .getAsJsonObject()));
+                } else if (dataBlock instanceof RemoveDataBlock) {
+                    NetworkLogger.fine("Received network removal for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
+                    if (!pipeline.getLocalCache().remove(dataClass, dataBlock.dataUUID))
+                        NetworkLogger
+                                .getLogger()
+                                .warning("Could not remove after network removal instruction [" + pipeline
+                                        .getLocalCache()
+                                        .dataExist(dataClass, remoteDataObject.getObjectUUID()) + "]");
+                }
+                return;
+            }
+
+            if (dataBlock instanceof CreationDataBlock creationDataBlock) {
+                //TODO Also send the pipeline data with the block so no pipeline lock is needed to load the data.
+                NetworkLogger.fine("Received network creation for " + dataClass.getSimpleName() + " [" + dataBlock.dataUUID + "]");
+                this.pipeline
+                        .getLocalCache()
+                        .save(dataClass, creationDataBlock.dataUUID, JsonParser.parseString(creationDataBlock.dataToUpdate));
             }
         };
         dataTopic.addListener(DataBlock.class, messageListener);
@@ -87,7 +97,7 @@ public class RedisDataSynchronizer implements Synchronizer {
                     .getGson()
                     .toJson(data.serialize())));
             NetworkLogger
-                    .info("Pushed network sync to " + count + " clients for " + data + " [" + data.getObjectUUID() + "]");
+                    .fine("Pushed network sync to " + count + " clients for " + data + " [" + data.getObjectUUID() + "]");
 
         } catch (Throwable e) {
             e.printStackTrace();
@@ -101,7 +111,23 @@ public class RedisDataSynchronizer implements Synchronizer {
         Objects.requireNonNull(uuid, "uuid can't be null!");
         try {
             dataTopic.publish(new RemoveDataBlock(senderUUID, uuid));
-            NetworkLogger.info("Pushed network removal for " + dataClass.getSimpleName() + " [" + uuid + "]");
+            NetworkLogger.fine("Pushed network removal for " + dataClass.getSimpleName() + " [" + uuid + "]");
+            /*            data.markRemoval();*/
+        } finally {
+            if (callback != null)
+                callback.run();
+        }
+    }
+
+    @Override
+    public void pushCreation(@NotNull IPipelineData data, Runnable callback) {
+        Objects.requireNonNull(data, "data can't be null!");
+        try {
+            dataTopic.publish(new CreationDataBlock(senderUUID, data.getObjectUUID(), attachedPipeline
+                    .getGson()
+                    .toJson(data.serialize())));
+            NetworkLogger
+                    .fine("Pushed network ´creation for " + data + " [" + data.getObjectUUID() + "]");
             /*            data.markRemoval();*/
         } finally {
             if (callback != null)
@@ -127,6 +153,15 @@ public class RedisDataSynchronizer implements Synchronizer {
     public static class RemoveDataBlock extends DataBlock {
         RemoveDataBlock(@NotNull UUID senderUUID, @NotNull UUID dataUUID) {
             super(senderUUID, dataUUID);
+        }
+    }
+
+    public static class CreationDataBlock extends DataBlock {
+        private final String dataToUpdate;
+
+        CreationDataBlock(@NotNull UUID senderUUID, @NotNull UUID dataUUID, String dataToUpdate) {
+            super(senderUUID, dataUUID);
+            this.dataToUpdate = dataToUpdate;
         }
     }
 

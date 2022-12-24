@@ -1,48 +1,22 @@
-import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.VNetwork;
 import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
-import model.TestData;
-import model.TestPing;
+import model.data.TestData;
+import model.messages.TestQuery;
+import model.messages.TestUpdate;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
-        asyncTest();
-    }
+        //asyncTest();
 
-    public static void testPingsConcurrent() {
+        var service1 = MessagingTests.createTestService("server1");
+        var service2 = MessagingTests.createTestService("server2");
 
-        new Thread(() -> {
-            var messagingService1 = VNetwork
-                    .getConstructionService()
-                    .createMessagingService()
-                    .withIdentifier("server1")
-                    .useRedisTransmitter(false, new String[]{"redis://localhost:6379"}, "")
-                    .buildMessagingService();
-
-            messagingService1.getMessageFactory().registerInstructionType(0, TestPing.class);
-
-            //messagingService1.shutdown();
-        }).start();
-
-        new Thread(() -> {
-            var messagingService2 = VNetwork
-                    .getConstructionService()
-                    .createMessagingService()
-                    .withIdentifier("server2")
-                    .useRedisTransmitter(false, new String[]{"redis://localhost:6379"}, "")
-                    .buildMessagingService();
-
-            messagingService2.getMessageFactory().registerInstructionType(0, TestPing.class);
-
-            var tPing = new TestPing(UUID.randomUUID()).withData(1);
-
-            messagingService2.sendInstruction(tPing);
-            //messagingService2.shutdown();
-        }).start();
+        var testUpdate = TestUpdate.createInstruction(TestUpdate.class).withData("hi");
     }
 
 /*    public static void testDataReference() throws InterruptedException {
@@ -75,16 +49,18 @@ public class Main {
         pipeline.shutdown();
     }*/
 
-    public static void testDataConcurrency() {
+/*    public static void testDataConcurrency() {
         UUID uuid = UUID.randomUUID();
 
-        var pipeline = VNetwork
+        var networkParticipant = VNetwork
                 .getConstructionService()
-                .createPipeline()
-                .withGlobalCache(GlobalCache.createRedisCache(false, new String[]{"redis://localhost:6379"}, ""))
-                .withSynchronizingService(SynchronizingService.buildRedisService(false, new String[]{"redis://localhost:6379"}, ""))
-                .withGlobalStorage(GlobalStorage.buildMongoDBStorage("127.0.0.1", "vPipelineTest", 27017, "", ""))
-                .buildPipeline();
+                .createNetworkParticipant()
+                .withPipeline(pipelineBuilder -> pipelineBuilder
+                        .withGlobalCache(GlobalCache.createRedisCache(false, new String[]{"redis://localhost:6379"}, ""))
+                        .withSynchronizingService(SynchronizingService.buildRedisService(false, new String[]{"redis://localhost:6379"}, ""))
+                        .withGlobalStorage(GlobalStorage.buildMongoDBStorage("127.0.0.1", "vPipelineTest", 27017, "", "")))
+                .build();
+        var pipeline = networkParticipant.pipeline();
 
         pipeline.getDataRegistry().registerType(TestData.class);
 
@@ -160,7 +136,7 @@ public class Main {
             data.thenApply(testDataPipelineLock -> testDataPipelineLock.performReadOperation(testData -> System.out.println(testData.testInt)));
 
             remotePipeline.shutdown();
-        }).start();
+        }).start();*/
 
 /*        new Thread(() -> {
             var data = pipeline.loadOrCreate(TestData.class, uuid);
@@ -175,9 +151,9 @@ public class Main {
             });
             pipeline.shutdown();
         }).start();*/
-    }
+}
 
-    public static void asyncTest() throws InterruptedException {
+/*    public static void asyncTest() throws InterruptedException {
         var pipeline = VNetwork
                 .getConstructionService()
                 .createPipeline()
@@ -203,18 +179,17 @@ public class Main {
 
         var t1 = new Thread(() -> {
             remotePipeline.loadOrCreate(TestData.class, uuid)
-                    .thenApply(pipelineLock -> pipelineLock.performWriteOperation(testData -> testData.testInt += 1))
-                    .thenApply(pipelineLock -> pipelineLock.performWriteOperation(testData -> testData.testString = "hallo"))
-                    .join();
+                          .thenApply(pipelineLock -> pipelineLock.performWriteOperation(testData -> testData.testInt += 1))
+                          .thenApply(pipelineLock -> pipelineLock.performWriteOperation(testData -> testData.testString = "hallo"))
+                          .join();
         });
         t1.start();
         t1.join();
 
-        pipeline.delete(TestData.class,uuid).join();
-
+        pipeline.delete(TestData.class, uuid).join();
 
 
         pipeline.shutdown();
         remotePipeline.shutdown();
-    }
-}
+    }*/
+/*}*/

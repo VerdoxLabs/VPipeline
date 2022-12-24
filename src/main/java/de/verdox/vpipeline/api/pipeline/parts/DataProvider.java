@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * @version 1.0
@@ -27,4 +28,6 @@ public interface DataProvider extends SystemPart {
     Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass);
 
     AttachedPipeline getAttachedPipeline();
+
+    DataProviderLock getDataProviderLock();
 }

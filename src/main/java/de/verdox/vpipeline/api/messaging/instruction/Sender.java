@@ -1,5 +1,8 @@
 package de.verdox.vpipeline.api.messaging.instruction;
 
+import de.verdox.vpipeline.api.messaging.instruction.types.Query;
+import de.verdox.vpipeline.api.messaging.instruction.types.Response;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -17,11 +20,13 @@ public interface Sender<T> {
      * @param instructionData The data that will be sent.
      * @return Whether the instruction should be sent or not.
      */
-    boolean onSend(Object[] instructionData);
+    boolean onSend(TransmittedData instructionData);
+    void onReceive(TransmittedData transmittedData);
 
-    FutureResponse<T> getFuture();
+    Response<T> getResponse();
 
     class FutureResponse<T> extends CompletableFuture<T> {
+
         public T getOrDefault(long timeOut, TimeUnit timeUnit, T defaultValue) {
             try {
                 return get(timeOut, timeUnit);

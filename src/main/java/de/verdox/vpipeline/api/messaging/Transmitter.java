@@ -11,9 +11,9 @@ import java.util.UUID;
  * @date 19.06.2022 12:25
  */
 public interface Transmitter extends SystemPart {
-    void sendMessage(Message message, UUID... receivers);
+    long sendMessage(Message message, UUID... receivers);
 
-    void broadcastMessage(Message message);
+    long broadcastMessage(Message message);
 
     void setMessagingService(MessagingService messagingService);
 }

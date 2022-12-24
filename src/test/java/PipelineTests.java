@@ -1,12 +1,12 @@
 import de.verdox.vpipeline.api.NetworkLogger;
+import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.VNetwork;
-import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
-import de.verdox.vpipeline.api.util.AnnotationResolver;
-import model.*;
+import io.netty.util.concurrent.DefaultThreadFactory;
+import model.data.*;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,10 +14,9 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.logging.Level;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,39 +27,46 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class PipelineTests {
 
+    public static NetworkParticipant networkParticipant1;
+    public static NetworkParticipant networkParticipant2;
     public static Pipeline pipeline;
     public static Pipeline remotePipeline;
-    public static MessagingService messagingService1;
-    public static MessagingService messagingService2;
     public static TestData testData;
-
-    public static final UUID uuid1 = UUID.randomUUID();
+    public static final UUID uuid1 = UUID.nameUUIDFromBytes("test".getBytes(StandardCharsets.UTF_8));
+    public static final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(2, new DefaultThreadFactory("VPipeline-ThreadPool [PipelineTests]"));
 
     @BeforeEach
     public void testAnnounce() {
-        NetworkLogger.info("<> ================= <>");
+
     }
 
     @BeforeAll
     public static void setupPipeline() {
-        pipeline = VNetwork
-                .getConstructionService()
-                .createPipeline()
-                .withGlobalCache(GlobalCache.createRedisCache(false, new String[]{"redis://localhost:6379"}, ""))
-                .withSynchronizingService(SynchronizingService.buildRedisService(false, new String[]{"redis://localhost:6379"}, ""))
-                .withGlobalStorage(GlobalStorage.buildMongoDBStorage("127.0.0.1", "vPipelineTest", 27017, "", ""))
-                .buildPipeline();
 
+        NetworkLogger.setLevel(Level.ALL);
 
-        remotePipeline = VNetwork
-                .getConstructionService()
-                .createPipeline()
-                .withGlobalCache(GlobalCache.createRedisCache(false, new String[]{"redis://localhost:6379"}, ""))
-                .withSynchronizingService(SynchronizingService.buildRedisService(false, new String[]{"redis://localhost:6379"}, ""))
-                .withGlobalStorage(GlobalStorage.buildMongoDBStorage("127.0.0.1", "vPipelineTest", 27017, "", ""))
-                .buildPipeline();
+        networkParticipant1 = VNetwork.getConstructionService()
+                                      .createNetworkParticipant()
+                                      .withExecutorService(scheduledExecutorService)
+                                      .withPipeline(pipelineBuilder -> pipelineBuilder
+                                              .withGlobalCache(GlobalCache.createRedisCache(false, new String[]{"redis://localhost:6379"}, ""))
+                                              .withSynchronizingService(SynchronizingService.buildRedisService(false, new String[]{"redis://localhost:6379"}, ""))
+                                              .withGlobalStorage(GlobalStorage.buildMongoDBStorage("127.0.0.1", "vPipelineTest", 27017, "", "")))
+                                      .withName("server1").build();
 
+        networkParticipant2 = VNetwork.getConstructionService()
+                                      .createNetworkParticipant()
+                                      .withExecutorService(scheduledExecutorService)
+                                      .withPipeline(pipelineBuilder -> pipelineBuilder
+                                              .withGlobalCache(GlobalCache.createRedisCache(false, new String[]{"redis://localhost:6379"}, ""))
+                                              .withSynchronizingService(SynchronizingService.buildRedisService(false, new String[]{"redis://localhost:6379"}, ""))
+                                              .withGlobalStorage(GlobalStorage.buildMongoDBStorage("127.0.0.1", "vPipelineTest", 27017, "", "")))
+                                      .withName("server2").build();
 
+        pipeline = networkParticipant1.pipeline();
+        remotePipeline = networkParticipant2.pipeline();
+
+/*
         messagingService1 = VNetwork
                 .getConstructionService()
                 .createMessagingService()
@@ -73,23 +79,25 @@ public class PipelineTests {
                 .createMessagingService()
                 .withIdentifier("server2")
                 .useRedisTransmitter(false, new String[]{"redis://localhost:6379"}, "")
-                .buildMessagingService();
+                .buildMessagingService();*/
 
         pipeline.getDataRegistry().registerType(TestData.class);
         pipeline.getDataRegistry().registerType(OnlyLocalData.class);
         pipeline.getDataRegistry().registerType(OnlyCacheData.class);
         pipeline.getDataRegistry().registerType(OnlyStorageData.class);
+        pipeline.getDataRegistry().registerType(LoadBeforeTest.class);
 
         remotePipeline.getDataRegistry().registerType(TestData.class);
         remotePipeline.getDataRegistry().registerType(OnlyLocalData.class);
         remotePipeline.getDataRegistry().registerType(OnlyCacheData.class);
         remotePipeline.getDataRegistry().registerType(OnlyStorageData.class);
+        remotePipeline.getDataRegistry().registerType(LoadBeforeTest.class);
 
-        messagingService1.getMessageFactory().registerInstructionType(0, TestUpdate.class);
-        messagingService2.getMessageFactory().registerInstructionType(0, TestUpdate.class);
-
-        messagingService1.getMessageFactory().registerInstructionType(1, TestQuery.class);
-        messagingService2.getMessageFactory().registerInstructionType(1, TestQuery.class);
+        pipeline.delete(TestData.class, uuid1).join();
+        pipeline.delete(OnlyLocalData.class, uuid1).join();
+        pipeline.delete(OnlyCacheData.class, uuid1).join();
+        pipeline.delete(OnlyStorageData.class, uuid1).join();
+        pipeline.delete(LoadBeforeTest.class, uuid1).join();
 
         //testData = pipeline1.loadOrCreate(TestData.class, UUID.randomUUID()).get();
     }
@@ -104,6 +112,9 @@ public class PipelineTests {
 
         var testInt = pipeline.load(TestData.class, uuid1)
                               .thenApply(pipelineLock -> pipelineLock.getter(testData1 -> testData1.testInt)).join();
+
+        remotePipeline.loadAllData(TestData.class);
+
         pipeline.delete(TestData.class, uuid1).join();
         assertEquals(1, testInt, "Testint should be 1");
     }
@@ -200,28 +211,27 @@ public class PipelineTests {
     }
 
     @Test
-    public void testChangeAndRemove2() {
+    public void testChangeAndRemove2() throws InterruptedException {
 
         pipeline.loadOrCreate(TestData.class, uuid1).join();
 
-        var t1 = new Thread(() -> remotePipeline.delete(TestData.class, uuid1));
+        var t1 = new Thread(() -> remotePipeline.delete(TestData.class, uuid1).join());
         t1.start();
-        pipeline
-                .load(TestData.class, uuid1)
-                .thenApply(pipelineLock -> pipelineLock.performWriteOperation(testData1 -> testData1.testString = "a"))
-                .join();
+        t1.join();
 
-        var existsInRemotePipeline = remotePipeline.exist(TestData.class, uuid1).join();
-        var exists = pipeline.exist(TestData.class, uuid1).join();
-        var existsLocally = pipeline.getLocalCache().dataExist(TestData.class, uuid1);
-        var existsGlobalCache = pipeline.getGlobalCache().dataExist(TestData.class, uuid1);
-        var existsGlobalStorage = pipeline.getGlobalStorage().dataExist(TestData.class, uuid1);
+        NetworkLogger.info("Testing pipeline:");
 
-        assertFalse(existsInRemotePipeline, "Data should not exist remote in pipeline anymore");
-        assertFalse(existsGlobalStorage, "Data should not exist in global storage anymore");
-        assertFalse(existsGlobalCache, "Data should not exist in global cache anymore");
-        assertFalse(existsLocally, "Data should not exist in local cache anymore");
-        assertFalse(exists, "Data should not exist at all");
+        assertFalse(pipeline.exist(TestData.class, uuid1).join());
+        assertFalse(pipeline.getLocalCache().dataExist(TestData.class, uuid1));
+        assertFalse(pipeline.getGlobalCache().dataExist(TestData.class, uuid1));
+        assertFalse(pipeline.getGlobalStorage().dataExist(TestData.class, uuid1));
+
+        NetworkLogger.info("Testing remote pipeline:");
+
+        assertFalse(remotePipeline.exist(TestData.class, uuid1).join());
+        assertFalse(remotePipeline.getLocalCache().dataExist(TestData.class, uuid1));
+        assertFalse(remotePipeline.getGlobalCache().dataExist(TestData.class, uuid1));
+        assertFalse(remotePipeline.getGlobalStorage().dataExist(TestData.class, uuid1));
     }
 
     @Test
@@ -263,17 +273,39 @@ public class PipelineTests {
         assertFalse(existsInStorage);
     }
 
+    @Test
+    public void testOnlyStorage() {
+        pipeline.loadOrCreate(OnlyStorageData.class, uuid1)
+                .join();
+
+        var existsInCache = pipeline.getGlobalCache().dataExist(OnlyStorageData.class, uuid1);
+        var existsInStorage = pipeline.getGlobalStorage().dataExist(OnlyStorageData.class, uuid1);
+
+        assertFalse(existsInCache);
+        assertTrue(existsInStorage);
+    }
+
+    @Test
+    public void createdAndLoadedOnRemotePipeline() {
+        pipeline.loadOrCreate(LoadBeforeTest.class,uuid1).join();
+
+        var found = remotePipeline.getLocalCache().dataExist(LoadBeforeTest.class,uuid1);
+        assertTrue(found);
+    }
+
     @AfterAll
     public static void cleanUp() {
         if (testData != null)
             pipeline.delete(testData.getClass(), testData.getObjectUUID());
 
-        pipeline.delete(TestData.class, uuid1);
+        pipeline.delete(TestData.class, uuid1).join();
+        pipeline.delete(OnlyLocalData.class, uuid1).join();
+        pipeline.delete(OnlyCacheData.class, uuid1).join();
+        pipeline.delete(OnlyStorageData.class, uuid1).join();
+        pipeline.delete(LoadBeforeTest.class, uuid1).join();
 
-        pipeline.shutdown();
-        remotePipeline.shutdown();
-
-        messagingService1.shutdown();
-        messagingService2.shutdown();
+        networkParticipant1.shutdown();
+        networkParticipant2.shutdown();
+        scheduledExecutorService.shutdownNow();
     }
 }

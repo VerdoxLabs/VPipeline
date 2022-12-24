@@ -23,6 +23,8 @@ public interface Instruction<T> extends Sender<T> {
      */
     Object[] getData();
 
+    boolean isOwnTransmittedData(TransmittedData transmittedData);
+
     /**
      * @return The timestamp when the instruction was created.
      */

@@ -27,6 +27,10 @@ public record MessageWrapper(Message message) {
         return message.getData(1, Integer.class);
     }
 
+    public String getSenderIdentifier() {
+        return message.getSenderIdentifier();
+    }
+
     public UUID getInstructionUUID() {
         return message.getData(2, UUID.class);
     }
@@ -40,7 +44,7 @@ public record MessageWrapper(Message message) {
     }
 
     public Object[] getResponseData() {
-        if(!isResponse())
+        if (!isResponse())
             throw new RuntimeException("Message is not a response");
         return message.getData(5, Object[].class);
     }

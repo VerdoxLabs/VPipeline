@@ -7,6 +7,7 @@ import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
+import de.verdox.vpipeline.api.pipeline.parts.DataProviderLock;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.RemoteStorage;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
@@ -16,6 +17,8 @@ import org.redisson.api.RBucket;
 import org.redisson.client.codec.StringCodec;
 
 import javax.annotation.Nonnull;
+import java.lang.reflect.Array;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -24,6 +27,7 @@ import java.util.stream.Collectors;
 
 public class RedisCache extends RedisConnection implements GlobalCache, RemoteStorage {
     private final AttachedPipeline attachedPipeline;
+
 
     public RedisCache(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
         super(clusterMode, addressArray, redisPassword);
@@ -55,7 +59,7 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
         verifyInput(dataClass, objectUUID);
         RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
         objectCache.set(attachedPipeline.getGson().toJson(dataToSave));
-        NetworkLogger.info("[RedisCache] Saving to redis cache " + dataClass.getSimpleName() + " [" + objectCache + "]");
+        NetworkLogger.fine("[RedisCache] Saving to redis cache " + dataClass.getSimpleName() + " [" + objectCache + "]");
         updateExpireTime(dataClass, objectCache);
     }
 
@@ -63,14 +67,18 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     public synchronized boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
         RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
-        NetworkLogger.info("[RedisCache] Removing from redis cache " + dataClass.getSimpleName() + " [" + objectCache + "]");
+        NetworkLogger.fine("[RedisCache] Removing from redis cache " + dataClass.getSimpleName() + " [" + objectCache + "]");
         return objectCache.delete();
     }
 
     @Override
     public synchronized Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
-        return getKeys(dataClass).stream().map(s -> UUID.fromString(s.split(":")[1])).collect(Collectors.toSet());
+
+        return getKeys(dataClass)
+                .stream()
+                .map(s -> parseUUIDWithKey(dataClass, s))
+                .collect(Collectors.toSet());
     }
 
     @Override
@@ -78,12 +86,17 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
         return attachedPipeline;
     }
 
+    @Override
+    public DataProviderLock getDataProviderLock() {
+        return null;
+    }
+
     private synchronized RBucket<String> getObjectCache(@Nonnull Class<? extends IPipelineData> dataClass, @Nonnull @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
 
         String classifier = AnnotationResolver
                 .getDataStorageClassifier(dataClass)
-                .isEmpty() ? ":" : AnnotationResolver.getDataStorageClassifier(dataClass) + ":";
+                .isEmpty() ? "" : AnnotationResolver.getDataStorageClassifier(dataClass) + ":";
         String key = "VPipeline:" + classifier + objectUUID + ":" + AnnotationResolver.getDataStorageIdentifier(dataClass);
 
         RBucket<String> objectCache = redissonClient.getBucket(key, new StringCodec());
@@ -98,9 +111,11 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
         String classifier = AnnotationResolver.getDataStorageClassifier(dataClass);
         return redissonClient.getKeys().getKeysStream().filter(s -> {
             String[] parts = s.split(":");
+            if (parts[0].equalsIgnoreCase("lock"))
+                return false;
 
             if (classifier.isEmpty())
-                return parts[3].equals(storageIdentifier);
+                return parts[2].equals(storageIdentifier);
             else
                 return parts[1].equals(classifier) && parts[3].equals(storageIdentifier);
 
@@ -142,13 +157,23 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     public <T extends IPipelineData> Lock acquireGlobalObjectReadLock(@NotNull Class<? extends T> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
         String storageIdentifier = AnnotationResolver.getDataStorageIdentifier(dataClass);
-        return redissonClient.getReadWriteLock(storageIdentifier + ":" + objectUUID).readLock();
+        return redissonClient.getReadWriteLock("lock:" + storageIdentifier + ":" + objectUUID).readLock();
     }
 
     @Override
     public <T extends IPipelineData> Lock acquireGlobalObjectWriteLock(@NotNull Class<? extends T> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
         String storageIdentifier = AnnotationResolver.getDataStorageIdentifier(dataClass);
-        return redissonClient.getReadWriteLock(storageIdentifier + ":" + objectUUID).writeLock();
+        return redissonClient.getReadWriteLock("lock:" + storageIdentifier + ":" + objectUUID).writeLock();
+    }
+
+    private UUID parseUUIDWithKey(Class<? extends IPipelineData> dataClass, String key) {
+        String classifier = AnnotationResolver.getDataStorageClassifier(dataClass);
+        var uuidString = "";
+        if (classifier.isEmpty())
+            uuidString = key.split(":")[1];
+        else
+            uuidString = key.split(":")[2];
+        return UUID.fromString(uuidString);
     }
 }

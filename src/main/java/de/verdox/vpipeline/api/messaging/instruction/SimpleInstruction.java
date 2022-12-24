@@ -1,6 +1,7 @@
 package de.verdox.vpipeline.api.messaging.instruction;
 
 import de.verdox.vpipeline.api.NetworkParticipant;
+import de.verdox.vpipeline.api.messaging.instruction.types.Response;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.InvocationTargetException;
@@ -21,6 +22,7 @@ public abstract class SimpleInstruction<T> implements Instruction<T> {
     private final long creationTimeStamp;
     private Object[] data;
     private NetworkParticipant networkParticipant;
+    protected final Response<T> response = new Response<>();
 
     private UUID sessionUUID;
 
@@ -50,7 +52,7 @@ public abstract class SimpleInstruction<T> implements Instruction<T> {
     }
 
     @Override
-    public boolean onSend(Object[] instructionData) {
+    public boolean onSend(TransmittedData instructionData) {
         return true;
     }
 
@@ -97,6 +99,11 @@ public abstract class SimpleInstruction<T> implements Instruction<T> {
         return networkParticipant;
     }
 
+    @Override
+    public boolean isOwnTransmittedData(TransmittedData transmittedData) {
+        return transmittedData.transmitter().equals(getCurrentClient().messagingService().getSessionUUID());
+    }
+
     public static <T extends SimpleInstruction<?>> T createInstruction(Class<? extends T> type) {
         try {
             return type.getDeclaredConstructor(UUID.class).newInstance(UUID.randomUUID());
@@ -104,5 +111,10 @@ public abstract class SimpleInstruction<T> implements Instruction<T> {
                  NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public Response<T> getResponse() {
+        return response;
     }
 }

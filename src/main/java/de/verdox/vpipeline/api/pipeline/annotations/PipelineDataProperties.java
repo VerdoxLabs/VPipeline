@@ -21,7 +21,7 @@ public @interface PipelineDataProperties {
 
     PreloadStrategy preloadStrategy() default PreloadStrategy.LOAD_ON_NEED;
 
-    boolean cleanOnNoUse() default true;
+    boolean cleanOnNoUse() default false;
 
     long time() default 20L;
 

@@ -1,6 +1,7 @@
 package de.verdox.vpipeline.api.pipeline.core;
 
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
+import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 
 import java.util.UUID;
 import java.util.concurrent.locks.Lock;
@@ -24,9 +25,10 @@ public interface PipelineLock<T extends IPipelineData> {
 
     //TODO: Implement callback function
     PipelineLock<T> performReadOperation(Consumer<T> reader);
-
     PipelineLock<T> performWriteOperation(Consumer<T> writer, boolean pushToNetwork);
     PipelineLock<T> performSaveOperation(boolean saveToStorage);
+
+    DataReference<T> asReference();
 
     default PipelineLock<T> performWriteOperation(Consumer<T> writer) {
         return performWriteOperation(writer, true);

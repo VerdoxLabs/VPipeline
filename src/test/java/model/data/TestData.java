@@ -1,11 +1,11 @@
-package model;
+package model.data;
 
+import de.verdox.vpipeline.api.pipeline.annotations.DataStorageIdentifier;
+import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.PipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 import de.verdox.vpipeline.api.pipeline.enums.DataContext;
-import de.verdox.vpipeline.api.pipeline.annotations.DataStorageIdentifier;
-import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.enums.PreloadStrategy;
 import org.jetbrains.annotations.NotNull;
 
@@ -17,7 +17,7 @@ import java.util.*;
  * @date 18.06.2022 22:20
  */
 
-@DataStorageIdentifier(identifier = "model.TestData")
+@DataStorageIdentifier(identifier = "model.data.TestData",classifier = "test")
 @PipelineDataProperties(dataContext = DataContext.GLOBAL, preloadStrategy = PreloadStrategy.LOAD_ON_NEED)
 public class TestData extends PipelineData {
 

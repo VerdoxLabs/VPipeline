@@ -1,0 +1,19 @@
+{
+  "sender": "a8438da7-8e67-3f44-a5cf-f9e44ebacfbd",
+  "senderIdentifier": "server1",
+  "parameters": [
+    "VInstruction"
+  ],
+  "dataToSend": [
+    "a8438da7-8e67-3f44-a5cf-f9e44ebacfbd",
+    9993,
+    "5e0b83c0-fc42-4dc6-8146-0a4ccb0fdf87",
+    [
+      "KeepAlivePing"
+    ],
+    [
+      "a8438da7-8e67-3f44-a5cf-f9e44ebacfbd",
+      "server1"
+    ]
+  ]
+}

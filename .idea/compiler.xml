@@ -10,5 +10,9 @@
         <module name="VNetwork" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="api" target="17" />
+      <module name="impl" target="17" />
+    </bytecodeTargetLevel>
   </component>
 </project>

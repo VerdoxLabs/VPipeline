@@ -10,8 +10,10 @@ import java.util.concurrent.CompletableFuture;
  * @Author: Lukas Jonsson (Verdox)
  * @date 18.06.2022 11:05
  */
+@Deprecated
 public interface PipelineTask<T extends IPipelineData> {
     UUID getTaskUUID();
+
     UUID getDataUUID();
 
     PipelineTaskScheduler.TaskType getTaskType();

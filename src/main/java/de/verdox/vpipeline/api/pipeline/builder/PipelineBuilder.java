@@ -5,6 +5,8 @@ import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 
+import java.util.concurrent.ExecutorService;
+
 /**
  * @version 1.0
  * @Author: Lukas Jonsson (Verdox)
@@ -16,6 +18,8 @@ public interface PipelineBuilder {
     PipelineBuilder withGlobalStorage(GlobalStorage globalStorage);
 
     PipelineBuilder withSynchronizingService(SynchronizingService synchronizingService);
+
+    PipelineBuilder withExecutorService(ExecutorService executorService);
 
     Pipeline buildPipeline();
 }

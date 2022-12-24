@@ -1,5 +1,6 @@
-package model;
+package model.messages;
 
+import de.verdox.vpipeline.api.messaging.instruction.TransmittedData;
 import de.verdox.vpipeline.api.messaging.instruction.types.Update;
 import org.jetbrains.annotations.NotNull;
 
@@ -17,15 +18,9 @@ public class TestUpdate extends Update {
     }
 
     @Override
-    protected @NotNull UpdateCompletion executeUpdateRemotely(Object[] instructionData) {
-        var string = (String) instructionData[0];
-        if (string.equals("example"))
-            return UpdateCompletion.TRUE;
-        return UpdateCompletion.FALSE;
-    }
-
-    @Override
-    protected boolean executeUpdateLocally(Object[] instructionData) {
-        return false;
+    protected @NotNull UpdateCompletion executeUpdate(TransmittedData instructionData) {
+        if (isOwnTransmittedData(instructionData))
+            return UpdateCompletion.NOT_DONE;
+        return UpdateCompletion.DONE;
     }
 }

@@ -6,19 +6,17 @@ import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 import de.verdox.vpipeline.impl.util.RedisConnection;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.UUID;
-
 /**
  * @version 1.0
  * @Author: Lukas Jonsson (Verdox)
  * @date 18.06.2022 11:28
  */
 public interface SynchronizingService extends SystemPart {
-    default Synchronizer getSynchronizer(@NotNull Pipeline pipeline, @NotNull IPipelineData data) {
-        return getSynchronizer(pipeline, data.getClass());
+    default Synchronizer getOrCreate(@NotNull Pipeline pipeline, @NotNull IPipelineData data) {
+        return getOrCreate(pipeline, data.getClass());
     }
 
-    Synchronizer getSynchronizer(@NotNull Pipeline pipeline, @NotNull Class<? extends IPipelineData> type);
+    Synchronizer getOrCreate(@NotNull Pipeline pipeline, @NotNull Class<? extends IPipelineData> type);
 
     static SynchronizingService buildRedisService(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
         return new RedisSynchronizingService(new RedisConnection(clusterMode, addressArray, redisPassword));

@@ -1,11 +1,14 @@
 package de.verdox.vpipeline.impl.messaging;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.MessageFactory;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.messaging.annotations.InstructionInfo;
 import de.verdox.vpipeline.api.messaging.instruction.Instruction;
 import de.verdox.vpipeline.api.messaging.message.Message;
+import de.verdox.vpipeline.impl.messaging.message.SimpleMessage;
 import de.verdox.vpipeline.impl.messaging.message.SimpleMessageBuilder;
 
 import java.lang.reflect.InvocationTargetException;
@@ -13,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 /**
  * @version 1.0
@@ -22,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MessageFactoryImpl implements MessageFactory {
 
     private final MessagingService messagingService;
-    private final Map<Integer, Class<? extends Instruction<?>>> instructionTypes = new ConcurrentHashMap<>();
+    private final Map<Integer, CachedInstructionData<?>> instructionTypes = new ConcurrentHashMap<>();
 
     public MessageFactoryImpl(MessagingService messagingService) {
         this.messagingService = messagingService;
@@ -34,15 +38,14 @@ public class MessageFactoryImpl implements MessageFactory {
     }
 
     @Override
-    public void registerInstructionType(int id, Class<? extends Instruction<?>> instructionType) {
+    public <T extends Instruction<?>> void registerInstructionType(int id, Class<? extends T> instructionType, Supplier<T> instanceSupplier) {
         if (instructionTypes.containsKey(id))
             throw new IllegalStateException("Id already registered: " + id);
-        instructionTypes.put(id, instructionType);
-        NetworkLogger.info("Instruction " + instructionType.getSimpleName() + " registered with id " + id);
+        instructionTypes.put(id, new CachedInstructionData<>(instructionType, instanceSupplier));
     }
 
     @Override
-    public Class<? extends Instruction<?>> getInstructionType(int id) {
+    public CachedInstructionData<?> getInstructionType(int id) {
         return instructionTypes.getOrDefault(id, null);
     }
 
@@ -59,8 +62,7 @@ public class MessageFactoryImpl implements MessageFactory {
                     .getSimpleName());
 
         NetworkLogger
-                .getLogger()
-                .info("[" + messagingService.getSessionIdentifier() + "] Constructing Message with " + messagingService.getSessionUUID());
+                .fine("[" + messagingService.getSessionIdentifier() + "] Constructing Message with " + messagingService.getSessionUUID());
 
         return new SimpleMessageBuilder(messagingService.getSessionUUID(), messagingService.getSessionIdentifier())
                 .withParameters(MessagingService.INSTRUCTION_IDENTIFIER)
@@ -75,7 +77,9 @@ public class MessageFactoryImpl implements MessageFactory {
         Objects.requireNonNull(instructionData);
         Objects.requireNonNull(responseData);
 
-        Class<? extends Instruction<?>> instructionType = getInstructionType(instructionID);
+        var cachedInstructionData = getInstructionType(instructionID);
+
+        Class<? extends Instruction<?>> instructionType = cachedInstructionData.type();
         if (instructionType == null)
             return null;
 
@@ -101,9 +105,12 @@ public class MessageFactoryImpl implements MessageFactory {
     @Override
     public Instruction<?> createInstruction(Class<? extends Instruction<?>> type, UUID uuid) {
         try {
-            return type.getConstructor(UUID.class).newInstance(uuid);
+            var constructor = type.getDeclaredConstructor(UUID.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(uuid);
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
                  NoSuchMethodException e) {
+            e.printStackTrace();
             throw new IllegalStateException(type.getSimpleName() + " needs a constructor (UUID)");
         }
     }
@@ -111,7 +118,7 @@ public class MessageFactoryImpl implements MessageFactory {
     @Override
     public int findInstructionID(Class<? extends Instruction<?>> type) {
         for (Integer integer : instructionTypes.keySet()) {
-            Class<? extends Instruction<?>> foundType = instructionTypes.get(integer);
+            Class<? extends Instruction<?>> foundType = instructionTypes.get(integer).type();
             if (type.equals(foundType))
                 return integer;
         }
@@ -122,6 +129,4 @@ public class MessageFactoryImpl implements MessageFactory {
     public int findInstructionID(Instruction<?> instruction) {
         return findInstructionID((Class<? extends Instruction<?>>) instruction.getClass());
     }
-
-
 }

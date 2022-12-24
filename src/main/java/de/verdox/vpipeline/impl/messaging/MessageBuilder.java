@@ -1,5 +1,7 @@
 package de.verdox.vpipeline.impl.messaging;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import de.verdox.vpipeline.api.messaging.message.Message;
 import de.verdox.vpipeline.impl.messaging.message.SimpleMessage;
 import org.jetbrains.annotations.NotNull;
@@ -15,8 +17,7 @@ import java.util.UUID;
  * @date 18.06.2022 23:00
  */
 public class MessageBuilder {
-
-
+    private static final Gson gson = new GsonBuilder().serializeNulls().create();
     protected final UUID sender;
     protected final String senderIdentifier;
     protected String[] parameters;

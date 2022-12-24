@@ -1,5 +1,6 @@
 package de.verdox.vpipeline.impl.pipeline.builder;
 
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.pipeline.builder.PipelineBuilder;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
@@ -7,6 +8,7 @@ import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vpipeline.impl.pipeline.core.PipelineImpl;
 
+import java.util.concurrent.ExecutorService;
 import java.util.logging.Logger;
 
 /**
@@ -15,11 +17,11 @@ import java.util.logging.Logger;
  * @date 18.06.2022 18:23
  */
 public class PipelineBuilderImpl implements PipelineBuilder {
-    static Logger log = Logger.getLogger(PipelineBuilderImpl.class.getName());
-
     private GlobalCache globalCache;
     private GlobalStorage globalStorage;
     private SynchronizingService synchronizingService;
+
+    private ExecutorService executorService;
 
     @Override
     public PipelineBuilder withGlobalCache(GlobalCache globalCache) {
@@ -43,12 +45,18 @@ public class PipelineBuilderImpl implements PipelineBuilder {
     }
 
     @Override
+    public PipelineBuilder withExecutorService(ExecutorService executorService) {
+        this.executorService = executorService;
+        return this;
+    }
+
+    @Override
     public Pipeline buildPipeline() {
         if (globalStorage == null && globalCache == null)
-            log.warning("Both globalCache and globalStorage were not set during pipeline building phase.");
-        if(synchronizingService == null && globalCache != null)
-            log.warning("A globalCache but no synchronizing service was set during pipeline building phase.");
-        return new PipelineImpl(globalCache, globalStorage, synchronizingService);
+            NetworkLogger.warning("Both globalCache and globalStorage were not set during pipeline building phase.");
+        if (synchronizingService == null && globalCache != null)
+            NetworkLogger.warning("A globalCache but no synchronizing service was set during pipeline building phase.");
+        return new PipelineImpl(this.executorService, globalCache, globalStorage, synchronizingService);
     }
 
     private void checkStorage() {
