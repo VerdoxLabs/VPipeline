@@ -24,7 +24,7 @@ public abstract class Ping extends SimpleInstruction<Boolean> implements Respond
     public abstract void onPingReceive(TransmittedData instructionData);
 
     @Override
-    public final boolean onSend(TransmittedData instructionData) {
+    protected boolean shouldSend(TransmittedData instructionData) {
         response.complete(instructionData.transmitter(), true);
         return true;
     }

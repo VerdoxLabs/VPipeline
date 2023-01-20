@@ -134,7 +134,7 @@ public abstract class SQLStorage implements GlobalStorage, RemoteStorage {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(name, "name can't be null!");
         executeUpdate(String.format(
-                "CREATE TABLE IF NOT EXISTS `%s` (%s VARCHAR(64) PRIMARY KEY, %s TEXT);",
+                "CREATE TABLE IF NOT EXISTS `%s` (%s VARCHAR(64) PRIMARY KEY, %s JSON);",
                 name,
                 TABLE_COLUMN_KEY,
                 TABLE_COLUMN_VAL

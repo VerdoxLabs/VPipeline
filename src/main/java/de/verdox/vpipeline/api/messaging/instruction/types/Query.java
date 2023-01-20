@@ -40,7 +40,7 @@ public abstract class Query<T> extends SimpleInstruction<T> implements Responder
     }
 
     @Override
-    public boolean onSend(TransmittedData instructionData) {
+    protected boolean shouldSend(TransmittedData instructionData) {
         var answer = respondToData(instructionData);
         if (answer != null && answer.length >= 1) {
             NetworkLogger.fine("[" + getCurrentClient()

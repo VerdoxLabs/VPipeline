@@ -68,4 +68,6 @@ public interface Pipeline extends SystemPart {
     <T extends IPipelineData> @NotNull PipelineLock<T> createPipelineLock(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid);
 
     <T extends IPipelineData> @NotNull DataReference<T> createDataReference(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid);
+
+    <T extends IPipelineData> CompletableFuture<Boolean> saveAndRemoveFromLocalCache(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid);
 }

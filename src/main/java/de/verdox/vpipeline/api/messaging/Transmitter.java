@@ -16,4 +16,6 @@ public interface Transmitter extends SystemPart {
     long broadcastMessage(Message message);
 
     void setMessagingService(MessagingService messagingService);
+
+    long getNetworkTransmitterAmount();
 }

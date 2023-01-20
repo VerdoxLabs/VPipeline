@@ -44,8 +44,9 @@ public abstract class Update extends Query<Boolean> {
         return (Boolean) responseData.data()[0];
     }
 
+
     @Override
-    public boolean onSend(TransmittedData instructionData) {
+    protected boolean shouldSend(TransmittedData instructionData) {
         var localResult = executeUpdate(instructionData);
         Objects.requireNonNull(localResult);
         if (localResult.equals(UpdateCompletion.DONE) || localResult.equals(UpdateCompletion.CANCELLED)) {
@@ -68,7 +69,7 @@ public abstract class Update extends Query<Boolean> {
             if (value)
                 return DONE;
             else
-                return CANCELLED;
+                return NOT_DONE;
         }
     }
 }

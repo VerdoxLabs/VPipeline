@@ -22,8 +22,7 @@ public abstract class SimpleInstruction<T> implements Instruction<T> {
     private final long creationTimeStamp;
     private Object[] data;
     private NetworkParticipant networkParticipant;
-    protected final Response<T> response = new Response<>();
-
+    protected Response<T> response;
     private UUID sessionUUID;
 
     public SimpleInstruction(@NotNull UUID uuid) {
@@ -52,9 +51,12 @@ public abstract class SimpleInstruction<T> implements Instruction<T> {
     }
 
     @Override
-    public boolean onSend(TransmittedData instructionData) {
-        return true;
+    public final boolean onSend(TransmittedData instructionData, long networkTransmitterAmount) {
+        this.response = new Response<>(networkTransmitterAmount);
+        return shouldSend(instructionData);
     }
+
+    protected abstract boolean shouldSend(TransmittedData instructionData);
 
     public void registerSessionUUID(UUID sessionUUID) {
         this.sessionUUID = sessionUUID;

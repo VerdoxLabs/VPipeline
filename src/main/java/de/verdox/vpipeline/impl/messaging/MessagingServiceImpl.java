@@ -35,7 +35,7 @@ import java.util.function.Consumer;
  * @date 18.06.2022 23:21
  */
 public class MessagingServiceImpl implements MessagingService {
-    private final Map<UUID, Instruction<?>> pendingInstructions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Instruction<?>> pendingInstructions = new ConcurrentHashMap<>();
     private final Map<UUID, RemoteMessageReceiverImpl> remoteParticipants = new ConcurrentHashMap<>();
     private final Set<RemoteMessageReceiverImpl> receivedKeepAlivePings = ConcurrentHashMap.newKeySet();
     private final EventBus eventBus;
@@ -73,6 +73,12 @@ public class MessagingServiceImpl implements MessagingService {
                             .getUuid()
                             .equals(sessionUUID));
             receivedKeepAlivePings.clear();
+            pendingInstructions.forEach((uuid, instruction) -> pendingInstructions.computeIfPresent(uuid, (uuid1, instruction1) -> {
+                if (!instruction1.getResponse().hasReceivedAllAnswers())
+                    return instruction1;
+                instruction1.getResponse().cancel();
+                return null;
+            }));
         }, 0, 10, TimeUnit.SECONDS);
     }
 
@@ -105,12 +111,13 @@ public class MessagingServiceImpl implements MessagingService {
         Message message = getMessageFactory().constructMessage(instruction);
         Objects.requireNonNull(message);
 
-        if (instruction.onSend(new TransmittedData(sessionUUID, getSessionIdentifier(), instruction.getData()))) {
-            long awaitedResponses = 0;
+        var receiversAmount = receivers.length == 0 ? transmitter.getNetworkTransmitterAmount() : receivers.length;
+
+        if (instruction.onSend(new TransmittedData(sessionUUID, getSessionIdentifier(), instruction.getData()), receiversAmount)) {
             if (receivers.length == 0)
-                awaitedResponses = getTransmitter().broadcastMessage(message);
+                getTransmitter().broadcastMessage(message);
             else
-                awaitedResponses = getTransmitter().sendMessage(message, receivers);
+                getTransmitter().sendMessage(message, receivers);
             if (instructionInfo.awaitsResponse())
                 pendingInstructions.put(uuid, instruction);
         }
@@ -156,6 +163,7 @@ public class MessagingServiceImpl implements MessagingService {
     public void shutdown() {
         NetworkLogger.info("Shutting down message transmitter");
         sendOfflinePing();
+        this.pendingInstructions.forEach((uuid, instruction) -> instruction.getResponse().cancel());
         this.keepAliveThread.shutdownNow();
         transmitter.shutdown();
         NetworkLogger.info("MessagingService is offline");

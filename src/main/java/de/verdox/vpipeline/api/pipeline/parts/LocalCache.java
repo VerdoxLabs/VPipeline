@@ -17,14 +17,18 @@ public interface LocalCache extends DataProvider {
     //TODO: Update last use on LoadObject
     @Nullable
     <S extends IPipelineData> S loadObject(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID);
+
     @NotNull
-    default <S extends IPipelineData> S loadObjectOrThrow(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID){
-        var data = loadObject(dataClass,objectUUID);
-        if(data == null)
-            throw new NoSuchElementException("Could not find an element of type "+dataClass.getSimpleName()+" with uuid "+objectUUID+" in local cache.");
+    default <S extends IPipelineData> S loadObjectOrThrow(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
+        var data = loadObject(dataClass, objectUUID);
+        if (data == null)
+            throw new NoSuchElementException("Could not find an element of type " + dataClass.getSimpleName() + " with uuid " + objectUUID + " in local cache.");
         return data;
     }
+
     <S extends IPipelineData> void saveObject(@NotNull S object);
+
     <S extends IPipelineData> Set<S> loadAllData(@NotNull Class<? extends S> dataClass);
+
     <S extends IPipelineData> S instantiateData(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID);
 }

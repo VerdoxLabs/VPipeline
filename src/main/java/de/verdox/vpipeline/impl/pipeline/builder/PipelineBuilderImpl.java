@@ -1,5 +1,6 @@
 package de.verdox.vpipeline.impl.pipeline.builder;
 
+import com.google.gson.GsonBuilder;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.pipeline.builder.PipelineBuilder;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
@@ -9,6 +10,7 @@ import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vpipeline.impl.pipeline.core.PipelineImpl;
 
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 /**
@@ -21,6 +23,7 @@ public class PipelineBuilderImpl implements PipelineBuilder {
     private GlobalStorage globalStorage;
     private SynchronizingService synchronizingService;
 
+    private Consumer<GsonBuilder> gsonBuilderConsumer;
     private ExecutorService executorService;
 
     @Override
@@ -51,12 +54,18 @@ public class PipelineBuilderImpl implements PipelineBuilder {
     }
 
     @Override
+    public PipelineBuilder withGson(Consumer<GsonBuilder> gsonBuilderConsumer) {
+        this.gsonBuilderConsumer = gsonBuilderConsumer;
+        return this;
+    }
+
+    @Override
     public Pipeline buildPipeline() {
         if (globalStorage == null && globalCache == null)
             NetworkLogger.warning("Both globalCache and globalStorage were not set during pipeline building phase.");
         if (synchronizingService == null && globalCache != null)
             NetworkLogger.warning("A globalCache but no synchronizing service was set during pipeline building phase.");
-        return new PipelineImpl(this.executorService, globalCache, globalStorage, synchronizingService);
+        return new PipelineImpl(this.executorService, globalCache, globalStorage, synchronizingService, gsonBuilderConsumer);
     }
 
     private void checkStorage() {

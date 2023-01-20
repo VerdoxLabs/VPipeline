@@ -31,8 +31,6 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
         super(clusterMode, addressArray, redisPassword);
         //TODO: Don't use Serialization codec but use gson
         globalMessagingChannel = redissonClient.getTopic("GlobalMessagingChannel", new SerializationCodec());
-
-
         this.listener = (channel, msg) -> {
             NetworkLogger.fine("[" + messagingService.getSessionIdentifier() + "] received a message on " + channel);
             try {
@@ -82,6 +80,11 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
         privateMessagingChannel.addListener(Message.class, listener);
 
         NetworkLogger.info("Private Channel: " + "PrivateMessagingChannel_" + messagingService.getSessionUUID());
+    }
+
+    @Override
+    public long getNetworkTransmitterAmount() {
+        return this.globalMessagingChannel.countSubscribers();
     }
 
     @Override

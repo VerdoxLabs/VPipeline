@@ -20,7 +20,7 @@ public interface Sender<T> {
      * @param instructionData The data that will be sent.
      * @return Whether the instruction should be sent or not.
      */
-    boolean onSend(TransmittedData instructionData);
+    boolean onSend(TransmittedData instructionData, long networkTransmitterAmount);
     void onReceive(TransmittedData transmittedData);
 
     Response<T> getResponse();
