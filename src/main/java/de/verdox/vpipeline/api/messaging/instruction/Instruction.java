@@ -12,13 +12,6 @@ public interface Instruction<T> extends Sender<T> {
     UUID getUUID();
 
     /**
-     * Getter for API Users to fetch the runtime parameters of this specific instruction.
-     *
-     * @return Parameters as String Array. Normally this output should equal the parameters() output.
-     */
-    String[] getParameters();
-
-    /**
      * @return The data that will be sent with this instruction
      */
     Object[] getData();

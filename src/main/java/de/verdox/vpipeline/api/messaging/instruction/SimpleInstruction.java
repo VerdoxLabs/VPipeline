@@ -1,5 +1,6 @@
 package de.verdox.vpipeline.api.messaging.instruction;
 
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.messaging.instruction.types.Response;
 import org.jetbrains.annotations.NotNull;
@@ -65,11 +66,6 @@ public abstract class SimpleInstruction<T> implements Instruction<T> {
     @Override
     public UUID getUUID() {
         return uuid;
-    }
-
-    @Override
-    public String[] getParameters() {
-        return parameters;
     }
 
     @Override

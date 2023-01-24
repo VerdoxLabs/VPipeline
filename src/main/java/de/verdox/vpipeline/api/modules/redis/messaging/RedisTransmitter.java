@@ -6,6 +6,7 @@ import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.messaging.Transmitter;
 import de.verdox.vpipeline.api.messaging.message.Message;
+import de.verdox.vpipeline.impl.messaging.message.MessageImpl;
 import de.verdox.vpipeline.impl.util.RedisConnection;
 import org.jetbrains.annotations.NotNull;
 import org.redisson.api.RTopic;
@@ -13,6 +14,7 @@ import org.redisson.api.listener.MessageListener;
 import org.redisson.client.codec.StringCodec;
 import org.redisson.codec.SerializationCodec;
 
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -23,42 +25,40 @@ import java.util.UUID;
 public class RedisTransmitter extends RedisConnection implements Transmitter {
 
     private final RTopic globalMessagingChannel;
-    private final MessageListener<Message> listener;
+    private final MessageListener<String> listener;
     private MessagingService messagingService;
     private RTopic privateMessagingChannel;
 
+    private final Gson gson = new GsonBuilder().serializeNulls().create();
+
     public RedisTransmitter(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
         super(clusterMode, addressArray, redisPassword);
-        //TODO: Don't use Serialization codec but use gson
-        globalMessagingChannel = redissonClient.getTopic("GlobalMessagingChannel", new SerializationCodec());
-        this.listener = (channel, msg) -> {
-            NetworkLogger.fine("[" + messagingService.getSessionIdentifier() + "] received a message on " + channel);
+
+        globalMessagingChannel = redissonClient.getTopic("GlobalMessagingChannel", new StringCodec());
+        this.listener = (channel, msgString) -> {
+            var msg = gson.fromJson(msgString, MessageImpl.class);
+            //NetworkLogger.info("[" + messagingService.getSessionIdentifier() + "] received a message on " + channel);
             try {
                 messagingService.postMessageEvent(String.valueOf(channel), msg);
             } catch (Throwable e) {
                 e.printStackTrace();
             }
-
         };
-        globalMessagingChannel.addListener(Message.class, listener);
+        globalMessagingChannel.addListener(String.class, listener);
         NetworkLogger.info("Redis Transmitter connected");
     }
 
     @Override
     public long sendMessage(Message message, UUID... receivers) {
-        if (receivers == null || receivers.length == 0) {
-            NetworkLogger
-                    .getLogger()
-                    .warning("[" + messagingService.getSessionIdentifier() + "] dumped message because it has no receiver ");
-            return 0;
-        }
+        if (receivers == null || receivers.length == 0)
+            return broadcastMessage(message);
         var counter = 0;
         for (UUID receiver : receivers) {
             if (receiver.equals(messagingService.getSessionUUID())) {
-                NetworkLogger.fine("[" + messagingService.getSessionIdentifier() + "] Skipping sending to itself");
+                NetworkLogger.warning("[" + messagingService.getSessionIdentifier() + "] Skipping sending to itself");
                 continue;
             }
-            NetworkLogger.fine("[" + messagingService.getSessionIdentifier() + "] Sending message to " + receiver);
+            NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Sending message to " + receiver);
             counter += publish(getPrivateMessagingChannel(receiver), message);
 
         }
@@ -66,8 +66,15 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
     }
 
     @Override
-    public long broadcastMessage(Message message) {
-        return publish(globalMessagingChannel, message);
+    public long broadcastMessage(@NotNull Message message) {
+        Objects.requireNonNull(message);
+        var publishedTo = publish(globalMessagingChannel, message);
+        var amountSubscribers = globalMessagingChannel.countSubscribers();
+        if (publishedTo != amountSubscribers)
+            NetworkLogger.warning("Broadcast message couldn't be sent to all subscribers [" + publishedTo + "/" + amountSubscribers + "] - " + message);
+        else
+            NetworkLogger.info("Message was broadcasted to " + publishedTo + "/" + amountSubscribers + " clients.");
+        return publishedTo;
     }
 
     @Override
@@ -77,7 +84,7 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
         this.messagingService = messagingService;
 
         privateMessagingChannel = getPrivateMessagingChannel(messagingService.getSessionUUID());
-        privateMessagingChannel.addListener(Message.class, listener);
+        privateMessagingChannel.addListener(String.class, listener);
 
         NetworkLogger.info("Private Channel: " + "PrivateMessagingChannel_" + messagingService.getSessionUUID());
     }
@@ -99,6 +106,6 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
     }
 
     private long publish(RTopic rTopic, Message message) {
-        return rTopic.publish(message);
+        return rTopic.publish(gson.toJson(message));
     }
 }

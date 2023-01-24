@@ -1,9 +1,12 @@
 package de.verdox.vpipeline.api.messaging.instruction.types;
 
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.annotations.InstructionInfo;
 import de.verdox.vpipeline.api.messaging.instruction.TransmittedData;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -28,35 +31,39 @@ public abstract class Update extends Query<Boolean> {
     protected abstract UpdateCompletion executeUpdate(TransmittedData instructionData);
 
     @Override
-    public Object[] respondToData(TransmittedData instructionData) {
+    public List<Object> respondToData(TransmittedData instructionData) {
         var result = executeUpdate(instructionData);
         Objects.requireNonNull(result);
         if (result.equals(UpdateCompletion.DONE))
-            return new Object[]{true};
+            return List.of(true);
         else if (result.equals(UpdateCompletion.CANCELLED))
-            return new Object[]{false};
+            return List.of(false);
         else
-            return new Object[0];
+            return new LinkedList<>();
     }
 
     @Override
     protected Boolean interpretResponse(TransmittedData responseData) {
-        return (Boolean) responseData.data()[0];
+        return (Boolean) responseData.data().get(0);
     }
 
 
     @Override
     protected boolean shouldSend(TransmittedData instructionData) {
         var localResult = executeUpdate(instructionData);
+        NetworkLogger.info("Local Result of " + getClass().getSimpleName() + ": " + localResult);
         Objects.requireNonNull(localResult);
         if (localResult.equals(UpdateCompletion.DONE) || localResult.equals(UpdateCompletion.CANCELLED)) {
-            if (localResult.equals(UpdateCompletion.DONE))
+            if (localResult.equals(UpdateCompletion.DONE)) {
+                NetworkLogger.info("Update was executed locally.");
                 getResponse().complete(instructionData.transmitter(), true);
-            else
+            } else {
+                NetworkLogger.info("Update was cancelled locally.");
                 getResponse().complete(instructionData.transmitter(), false);
-            // Don't send the update to the network since it is done.
+            }
             return false;
         }
+        NetworkLogger.info("Sending " + getClass().getSimpleName() + " to other servers.");
         return true;
     }
 

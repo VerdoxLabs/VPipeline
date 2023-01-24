@@ -7,11 +7,7 @@ import de.verdox.vpipeline.api.messaging.instruction.SimpleInstruction;
 import de.verdox.vpipeline.api.messaging.instruction.TransmittedData;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.*;
-import java.util.function.BiConsumer;
 
 /**
  * Instruction to query data remotely.
@@ -42,8 +38,8 @@ public abstract class Query<T> extends SimpleInstruction<T> implements Responder
     @Override
     protected boolean shouldSend(TransmittedData instructionData) {
         var answer = respondToData(instructionData);
-        if (answer != null && answer.length >= 1) {
-            NetworkLogger.fine("[" + getCurrentClient()
+        if (answer != null && answer.size() >= 1) {
+            NetworkLogger.debug("[" + getCurrentClient()
                     .messagingService()
                     .getSessionIdentifier() + "] Query was answered locally");
             var responseData = new TransmittedData(instructionData.transmitter(), instructionData.transmitterIdentifier(), answer);
@@ -61,7 +57,7 @@ public abstract class Query<T> extends SimpleInstruction<T> implements Responder
      */
     @Override
     public final void onResponseReceive(TransmittedData instructionData, TransmittedData responseData) {
-        if (responseData.data() == null || responseData.data().length == 0)
+        if (responseData.data() == null || responseData.data().size() == 0)
             return;
         response.complete(responseData.transmitter(), interpretResponse(responseData));
     }

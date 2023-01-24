@@ -17,8 +17,6 @@ import org.redisson.api.RBucket;
 import org.redisson.client.codec.StringCodec;
 
 import javax.annotation.Nonnull;
-import java.lang.reflect.Array;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -59,7 +57,7 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
         verifyInput(dataClass, objectUUID);
         RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
         objectCache.set(attachedPipeline.getGson().toJson(dataToSave));
-        NetworkLogger.fine("[RedisCache] Saving to redis cache " + dataClass.getSimpleName() + " [" + objectCache + "]");
+        NetworkLogger.debug("[RedisCache] Saving to redis cache " + dataClass.getSimpleName() + " [" + objectCache + "]");
         updateExpireTime(dataClass, objectCache);
     }
 
@@ -67,7 +65,7 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     public synchronized boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
         RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
-        NetworkLogger.fine("[RedisCache] Removing from redis cache " + dataClass.getSimpleName() + " [" + objectCache + "]");
+        NetworkLogger.debug("[RedisCache] Removing from redis cache " + dataClass.getSimpleName() + " [" + objectCache + "]");
         return objectCache.delete();
     }
 

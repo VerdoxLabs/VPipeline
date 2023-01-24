@@ -22,7 +22,9 @@ public class AttachedPipeline {
         if (this.pipeline != null)
             throw new IllegalStateException("A new pipeline can't be attached");
         this.pipeline = pipeline;
-        this.gson = gsonBuilder.apply(this.pipeline.getGsonBuilder());
+        var gson = this.pipeline.getGsonBuilder().create();
+        var buildCopy = gson.newBuilder();
+        this.gson = gsonBuilder.apply(buildCopy);
     }
 
     public Gson getGson() {

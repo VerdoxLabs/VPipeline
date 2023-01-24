@@ -47,7 +47,7 @@ public class LocalCacheImpl implements LocalCache {
                  .put(object.getObjectUUID(), object);
             object.updateLastUsage();
             NetworkLogger
-                    .fine("[LocalCache] Saved " + object + " [" + object.getObjectUUID() + "]");
+                    .debug("[LocalCache] Saved " + object + " [" + object.getObjectUUID() + "]");
             return null;
         });
     }
@@ -74,7 +74,7 @@ public class LocalCacheImpl implements LocalCache {
             foundData.deserialize(dataToSave);
             saveObject(foundData);
             NetworkLogger
-                    .fine("[LocalCache] Updated " + foundData + " [" + foundData.getObjectUUID() + "]");
+                    .debug("[LocalCache] Updated " + foundData + " [" + foundData.getObjectUUID() + "]");
             return null;
         });
     }
@@ -90,7 +90,7 @@ public class LocalCacheImpl implements LocalCache {
             IPipelineData data = cache.get(dataClass).remove(objectUUID);
             deleteFromCache(data);
             data.onDelete();
-            NetworkLogger.fine("[LocalCache] Removed " + data + " [" + objectUUID + "]");
+            NetworkLogger.debug("[LocalCache] Removed " + data + " [" + objectUUID + "]");
             return true;
         });
     }
@@ -154,7 +154,7 @@ public class LocalCacheImpl implements LocalCache {
             if (dataExist(dataClass, objectUUID))
                 return loadObject(dataClass, objectUUID);
 
-            NetworkLogger.fine("[LocalCache] Instantiated new data " + dataClass.getSimpleName() + " [" + objectUUID + "]");
+            NetworkLogger.debug("[LocalCache] Instantiated new data " + dataClass.getSimpleName() + " [" + objectUUID + "]");
             return PipelineData.instantiateData(attachedPipeline.getAttachedPipeline(), dataClass, objectUUID);
         });
     }

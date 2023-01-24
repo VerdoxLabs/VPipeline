@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
@@ -24,7 +25,7 @@ public class Response<T> {
             return;
         var future = new CompletableFuture<T>();
         actions.forEach(future::whenComplete);
-        future.completeAsync(() -> value);
+        future.completeAsync(() -> value).orTimeout(10, TimeUnit.SECONDS);
         receivedValues.put(transmitter, future);
     }
 
@@ -45,7 +46,7 @@ public class Response<T> {
             if (test.test(t))
                 future.complete(t);
         });
-        return future;
+        return future.orTimeout(10, TimeUnit.SECONDS);
     }
 
     public long getAmountReceivedValues() {

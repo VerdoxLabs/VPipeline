@@ -1,28 +1,21 @@
 package de.verdox.vpipeline.impl.messaging;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.MessageFactory;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.messaging.annotations.InstructionInfo;
 import de.verdox.vpipeline.api.messaging.instruction.Instruction;
 import de.verdox.vpipeline.api.messaging.message.Message;
-import de.verdox.vpipeline.impl.messaging.message.SimpleMessage;
-import de.verdox.vpipeline.impl.messaging.message.SimpleMessageBuilder;
+import de.verdox.vpipeline.impl.messaging.message.MessageImpl;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 19.06.2022 12:51
- */
 public class MessageFactoryImpl implements MessageFactory {
 
     private final MessagingService messagingService;
@@ -62,18 +55,16 @@ public class MessageFactoryImpl implements MessageFactory {
                     .getSimpleName());
 
         NetworkLogger
-                .fine("[" + messagingService.getSessionIdentifier() + "] Constructing Message with " + messagingService.getSessionUUID());
+                .debug("[" + messagingService.getSessionIdentifier() + "] Constructing Message with " + messagingService.getSessionUUID());
 
-        return new SimpleMessageBuilder(messagingService.getSessionUUID(), messagingService.getSessionIdentifier())
-                .withParameters(MessagingService.INSTRUCTION_IDENTIFIER)
-                .withData(getMessagingService().getSessionUUID(), id, instruction.getUUID(), instruction.getParameters(), instruction.getData())
-                .constructMessage();
+        return new MessageImpl(messagingService.getSessionUUID(), instruction.getUUID(), messagingService.getSessionIdentifier(), id)
+                .addParameter(MessagingService.INSTRUCTION_IDENTIFIER)
+                .addDataToSend(List.of(instruction.getData()));
     }
 
     @Override
-    public Message constructResponse(int instructionID, UUID instructionUUID, String[] arguments, Object[] instructionData, Object[] responseData) {
+    public Message constructResponse(int instructionID, UUID instructionUUID, List<Object> instructionData, List<Object> responseData) {
         Objects.requireNonNull(instructionUUID);
-        Objects.requireNonNull(arguments);
         Objects.requireNonNull(instructionData);
         Objects.requireNonNull(responseData);
 
@@ -87,11 +78,10 @@ public class MessageFactoryImpl implements MessageFactory {
                 .getLogger()
                 .info("[" + messagingService.getSessionIdentifier() + "] Constructing Response with " + messagingService.getSessionUUID());
 
-
-        return new SimpleMessageBuilder(messagingService.getSessionUUID(), messagingService.getSessionIdentifier())
-                .withParameters(MessagingService.RESPONSE_IDENTIFIER)
-                .withData(getMessagingService().getSessionUUID(), instructionID, instructionUUID, arguments, instructionData, responseData)
-                .constructMessage();
+        return new MessageImpl(messagingService.getSessionUUID(), instructionUUID, messagingService.getSessionIdentifier(), instructionID)
+                .addParameter(MessagingService.RESPONSE_IDENTIFIER)
+                .addDataToSend(instructionData)
+                .addResponses(responseData);
     }
 
     @Override

@@ -12,7 +12,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements PipelineSynchronizer {
     @Override
@@ -41,8 +40,6 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
                 .getDataProperties(dataClass)
                 .dataContext()
                 .isCacheAllowed()) && (source.equals(DataSourceType.GLOBAL_CACHE) || destination.equals(DataSourceType.GLOBAL_CACHE))) {
-            NetworkLogger
-                    .fine("Global cache not allowed for " + dataClass.getSimpleName());
             CallbackUtil.runIfNotNull(callback);
             return false;
         }
@@ -50,8 +47,6 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
                 .getDataProperties(dataClass)
                 .dataContext()
                 .isStorageAllowed()) && (source.equals(DataSourceType.GLOBAL_STORAGE) || destination.equals(DataSourceType.GLOBAL_STORAGE))) {
-            NetworkLogger
-                    .fine("Global storage not allowed for " + dataClass.getSimpleName());
             CallbackUtil.runIfNotNull(callback);
             return false;
         }
@@ -73,7 +68,7 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
         }
         DataProvider destinationProvider = getProvider(destination);
         NetworkLogger
-                .fine("Sync from " + source + " to " + destination + " for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
+                .debug("Sync from " + source + " to " + destination + " for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
         destinationProvider.save(dataClass, objectUUID, data);
 
         CallbackUtil.runIfNotNull(callback);
@@ -95,7 +90,7 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
         var localObject = pipeline.getLocalCache().loadObjectOrThrow(dataClass, objectUUID);
         var synchronizer = localObject.getSynchronizer();
         NetworkLogger
-                .fine("Syncing local instances for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
+                .debug("Syncing local instances for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
         synchronizer.pushUpdate(localObject, callback);
     }
 

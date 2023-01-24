@@ -12,21 +12,21 @@ public class DataProviderLockImpl implements DataProviderLock {
 
     @Override
     public <R> R executeOnReadLock(Supplier<R> function) {
-        reentrantLock.readLock().lock();
+/*        reentrantLock.readLock().lock();*/
         try {
             return function.get();
         } finally {
-            reentrantLock.readLock().unlock();
+/*            reentrantLock.readLock().unlock();*/
         }
     }
 
     @Override
     public <R> R executeOnWriteLock(Supplier<R> function) {
-        reentrantLock.writeLock().lock();
+/*        reentrantLock.writeLock().lock();*/
         try {
             return function.get();
         } finally {
-            reentrantLock.writeLock().unlock();
+/*            reentrantLock.writeLock().unlock();*/
         }
     }
 }

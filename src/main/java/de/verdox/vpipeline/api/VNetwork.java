@@ -29,7 +29,9 @@ public final class VNetwork {
 
     private static void setConstructionService(@NotNull ConstructionService pipelineService) {
         if (VNetwork.pipelineService != null) {
-            throw new UnsupportedOperationException("Cannot redefine singleton PipelineService");
+            {
+                throw new UnsupportedOperationException("Cannot redefine singleton PipelineService");
+            }
         }
         NetworkLogger.getLogger().setLevel(Level.ALL);
         VNetwork.pipelineService = pipelineService;

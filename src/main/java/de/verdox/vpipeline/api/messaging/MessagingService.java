@@ -38,7 +38,9 @@ public interface MessagingService extends SystemPart {
         return sendInstruction(createdInstance, receivers);
     }
 
-    <T> Response<T> sendInstruction(@NotNull Instruction<T> instruction);
+    default <T> Response<T> sendInstruction(@NotNull Instruction<T> instruction) {
+        return sendInstruction(instruction, new UUID[0]);
+    }
 
     <T> Response<T> sendInstruction(@NotNull Instruction<T> instruction, UUID... receivers);
 
@@ -50,7 +52,9 @@ public interface MessagingService extends SystemPart {
 
     String getSessionIdentifier();
 
-    boolean isOwnMessage(Message message);
+    default boolean isOwnMessage(Message message) {
+        return getSessionUUID().equals(message.getSender());
+    }
 
     void postMessageEvent(String channelName, Message message);
 

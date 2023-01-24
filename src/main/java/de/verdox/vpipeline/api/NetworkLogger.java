@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 public interface NetworkLogger {
 
     LoggerStats loggerStats = new LoggerStats();
+    DebugMode debugMode = new DebugMode(false);
 
     static Logger getLogger() {
         var callerName = Thread.currentThread().getStackTrace()[2].getClass().getSimpleName();
@@ -30,10 +31,12 @@ public interface NetworkLogger {
                 .getName() + " | " + extractClassName(caller.getClassName()) + ":" + caller.getMethodName() + "[" + caller.getLineNumber() + "]" + "] " + message);
     }
 
-    static void fine(String message) {
+    static void debug(String message) {
+        if (!debugMode.isDebugMode())
+            return;
         var caller = Thread.currentThread().getStackTrace()[3];
 
-        getLogger().fine("[" + Thread
+        getLogger().info("[" + Thread
                 .currentThread()
                 .getName() + " | " + extractClassName(caller.getClassName()) + ":" + caller.getMethodName() + "[" + caller.getLineNumber() + "]" + "] " + message);
     }
@@ -52,5 +55,21 @@ public interface NetworkLogger {
 
     class LoggerStats {
         private Level level = Level.ALL;
+    }
+
+    class DebugMode {
+        private boolean debugMode;
+
+        public DebugMode(boolean initialValue) {
+            this.debugMode = initialValue;
+        }
+
+        public boolean isDebugMode() {
+            return debugMode;
+        }
+
+        public void setDebugMode(boolean debugMode) {
+            this.debugMode = debugMode;
+        }
     }
 }

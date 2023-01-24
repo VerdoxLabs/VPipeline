@@ -1,5 +1,7 @@
 package de.verdox.vpipeline.api.messaging.instruction;
 
+import java.util.List;
+
 /**
  * @version 1.0
  * @Author: Lukas Jonsson (Verdox)
@@ -11,7 +13,7 @@ public interface Responder  {
      * @param instructionData The Data that was received
      * @return The Data that is sent as response. If the response is empty or null it won't be sent.
      */
-    Object[] respondToData(TransmittedData instructionData);
+    List<Object> respondToData(TransmittedData instructionData);
 
     /**
      * Called when a response is received

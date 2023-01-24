@@ -1,5 +1,6 @@
 package de.verdox.vpipeline.impl.network;
 
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.NetworkParticipantBuilder;
 import de.verdox.vpipeline.api.messaging.builder.MessagingServiceBuilder;

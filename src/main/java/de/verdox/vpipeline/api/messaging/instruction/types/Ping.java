@@ -7,6 +7,8 @@ import de.verdox.vpipeline.api.messaging.instruction.SimpleInstruction;
 import de.verdox.vpipeline.api.messaging.instruction.TransmittedData;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -35,8 +37,8 @@ public abstract class Ping extends SimpleInstruction<Boolean> implements Respond
     }
 
     @Override
-    public Object[] respondToData(TransmittedData instructionData) {
-        return new Object[0];
+    public List<Object> respondToData(TransmittedData instructionData) {
+        return new LinkedList<>();
     }
 
     @Override
