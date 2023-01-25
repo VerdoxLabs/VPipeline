@@ -148,6 +148,8 @@ public class PipelineImpl implements Pipeline {
     public <T extends IPipelineData> @Nullable CompletableFuture<PipelineLock<T>> load(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
         Objects.requireNonNull(uuid, "uuid can't be null");
+        if (!getDataRegistry().isTypeRegistered(dataClass))
+            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
 
         var future = new CompletableFuture<PipelineLock<T>>();
         executePipelineTask(future, () -> {
@@ -167,6 +169,8 @@ public class PipelineImpl implements Pipeline {
     public @NotNull <T extends IPipelineData> CompletableFuture<PipelineLock<T>> loadOrCreate(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
         Objects.requireNonNull(uuid, "uuid can't be null");
+        if (!getDataRegistry().isTypeRegistered(dataClass))
+            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
 
         var future = new CompletableFuture<PipelineLock<T>>();
         executePipelineTask(future, () -> {
@@ -181,6 +185,8 @@ public class PipelineImpl implements Pipeline {
     @Override
     public @NotNull <T extends IPipelineData> CompletableFuture<Set<DataReference<T>>> loadAllData(@NotNull Class<? extends T> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
+        if (!getDataRegistry().isTypeRegistered(dataClass))
+            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
 
         var future = new CompletableFuture<Set<DataReference<T>>>();
         executePipelineTask(future, () -> {
@@ -231,6 +237,8 @@ public class PipelineImpl implements Pipeline {
     public <T extends IPipelineData> CompletableFuture<Boolean> exist(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
         Objects.requireNonNull(uuid, "uuid can't be null");
+        if (!getDataRegistry().isTypeRegistered(dataClass))
+            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
         var future = new CompletableFuture<Boolean>();
         executePipelineTask(future, () -> {
             createPipelineLock(dataClass, uuid).runOnReadLock(() -> future.complete(checkExistence(dataClass, uuid)));
@@ -241,6 +249,8 @@ public class PipelineImpl implements Pipeline {
 
     @Override
     public <T extends IPipelineData> CompletableFuture<Boolean> delete(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
+        if (!getDataRegistry().isTypeRegistered(dataClass))
+            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
 
         var future = new CompletableFuture<Boolean>();
         executePipelineTask(future, () -> {
@@ -268,6 +278,8 @@ public class PipelineImpl implements Pipeline {
     }
 
     private <T extends IPipelineData> T load(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid, boolean createIfNotExist) {
+        if (!getDataRegistry().isTypeRegistered(dataClass))
+            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
         if (localCache.dataExist(dataClass, uuid)) {
             return localCache.loadObject(dataClass, uuid);
         } else if (globalCache != null && globalCache.dataExist(dataClass, uuid) && AnnotationResolver
