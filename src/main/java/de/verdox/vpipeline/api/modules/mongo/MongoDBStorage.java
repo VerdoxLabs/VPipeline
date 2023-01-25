@@ -63,7 +63,7 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
 
 
     @Override
-    public synchronized JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
@@ -81,7 +81,7 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
     }
 
     @Override
-    public synchronized boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
@@ -94,7 +94,7 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
     }
 
     @Override
-    public synchronized void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
+    public void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
         Objects.requireNonNull(dataToSave, "dataToSave can't be null!");
@@ -118,7 +118,7 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
     }
 
     @Override
-    public synchronized boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
@@ -138,7 +138,7 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
     }
 
     @Override
-    public synchronized Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
+    public Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         return dataProviderLock.executeOnReadLock(() -> {
             MongoCollection<Document> collection = getMongoStorage(dataClass, getSuffix(dataClass));
