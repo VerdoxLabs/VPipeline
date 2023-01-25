@@ -4,8 +4,8 @@ import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.messaging.builder.MessagingServiceBuilder;
 import de.verdox.vpipeline.api.messaging.Transmitter;
-import de.verdox.vpipeline.impl.messaging.MessagingServiceImpl;
 import de.verdox.vpipeline.api.modules.redis.messaging.RedisTransmitter;
+import de.verdox.vpipeline.impl.messaging.MessagingServiceImpl;
 import org.jetbrains.annotations.NotNull;
 
 /**

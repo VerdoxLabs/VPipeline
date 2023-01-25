@@ -2,15 +2,13 @@ package de.verdox.vpipeline.api.messaging;
 
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.messaging.instruction.Instruction;
-import de.verdox.vpipeline.api.messaging.instruction.types.Query;
-import de.verdox.vpipeline.api.messaging.instruction.types.Response;
-import de.verdox.vpipeline.api.messaging.message.Message;
+import de.verdox.vpipeline.api.messaging.instruction.ResponseCollector;
+import de.verdox.vpipeline.impl.messaging.ResponseCollectorImpl;
 import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
@@ -21,44 +19,15 @@ import java.util.function.Consumer;
 public interface MessagingService extends SystemPart {
 
     NetworkParticipant getNetworkParticipant();
-
-    String INSTRUCTION_IDENTIFIER = "VInstruction";
-    String RESPONSE_IDENTIFIER = "VResponse";
-
-    default <T> Response<T> sendInstruction(@NotNull Class<? extends Instruction<T>> type, Consumer<Instruction<T>> instructionModifier) {
-        return sendInstruction(type, instructionModifier, new UUID[0]);
-    }
-
-    default <T> Response<T> sendInstruction(@NotNull Class<? extends Instruction<T>> type, Consumer<Instruction<T>> instructionModifier, UUID... receivers) {
-        var instructionID = getMessageFactory().findInstructionID(type);
-        if (instructionID == -1)
-            throw new IllegalStateException("Instruction type " + type.getSimpleName() + " not registered");
-        var createdInstance = type.cast(getMessageFactory().getInstructionType(instructionID).instanceSupplier().get());
-        instructionModifier.accept(createdInstance);
-        return sendInstruction(createdInstance, receivers);
-    }
-
-    default <T> Response<T> sendInstruction(@NotNull Instruction<T> instruction) {
-        return sendInstruction(instruction, new UUID[0]);
-    }
-
-    <T> Response<T> sendInstruction(@NotNull Instruction<T> instruction, UUID... receivers);
-
+    Set<RemoteMessageReceiver> getRemoteMessageReceivers();
+    void sendKeepAlivePing();
     Transmitter getTransmitter();
-
+    UUID getSessionUUID();
+    String getSessionIdentifier();
     MessageFactory getMessageFactory();
 
-    UUID getSessionUUID();
+    void postMessageEvent(String channel, Instruction<?> instruction);
 
-    String getSessionIdentifier();
-
-    default boolean isOwnMessage(Message message) {
-        return getSessionUUID().equals(message.getSender());
-    }
-
-    void postMessageEvent(String channelName, Message message);
-
-    Set<RemoteMessageReceiver> getRemoteMessageReceivers();
-
-    void sendKeepAlivePing();
+    <R, T extends Instruction<R>> ResponseCollector<R> sendInstruction(@NotNull T instruction, UUID... receivers);
+    <R, T extends Instruction<R>> ResponseCollector<R> sendInstruction(@NotNull Class<? extends T> instructionType, Consumer<T> consumer, UUID... receivers);
 }
