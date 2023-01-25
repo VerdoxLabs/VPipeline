@@ -174,9 +174,13 @@ public class PipelineImpl implements Pipeline {
 
         var future = new CompletableFuture<PipelineLock<T>>();
         executePipelineTask(future, () -> {
-            var pipelineLock = createPipelineLock(dataClass, uuid);
-            pipelineLock.runOnWriteLock(() -> load(dataClass, uuid, true));
-            future.complete((PipelineLock<T>) pipelineLock);
+            try {
+                var pipelineLock = createPipelineLock(dataClass, uuid);
+                pipelineLock.runOnWriteLock(() -> load(dataClass, uuid, true));
+                future.complete((PipelineLock<T>) pipelineLock);
+            } catch (Throwable e) {
+                future.completeExceptionally(e);
+            }
             return null;
         });
         return future.orTimeout(10, TimeUnit.SECONDS);
@@ -193,7 +197,6 @@ public class PipelineImpl implements Pipeline {
             //Syncing data
             if (getGlobalStorage() != null && AnnotationResolver.getDataProperties(dataClass).dataContext()
                                                                 .isStorageAllowed()) {
-                NetworkLogger.info("Collecting all data from GlobalStorage of type " + dataClass.getSimpleName());
                 getGlobalStorage()
                         .getSavedUUIDs(dataClass)
                         .parallelStream()
@@ -204,12 +207,10 @@ public class PipelineImpl implements Pipeline {
                                     pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
                             });
                         });
-                NetworkLogger.info("Done collecting...");
 
             }
             if (getGlobalCache() != null && AnnotationResolver.getDataProperties(dataClass).dataContext()
                                                               .isCacheAllowed()) {
-                NetworkLogger.info("Collecting all data from GlobalCache of type " + dataClass.getSimpleName());
                 getGlobalCache()
                         .getSavedUUIDs(dataClass)
                         .parallelStream()
@@ -220,13 +221,11 @@ public class PipelineImpl implements Pipeline {
                                     pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
                             });
                         });
-                NetworkLogger.info("Done collecting...");
             }
 
             var set = new HashSet<DataReference<T>>();
             for (UUID savedUUID : getLocalCache().getSavedUUIDs(dataClass))
                 set.add(createDataReference(dataClass, savedUUID));
-            NetworkLogger.info("Found: " + set.size() + " in total");
             future.complete(set);
             return future;
         });
@@ -360,8 +359,7 @@ public class PipelineImpl implements Pipeline {
         Objects.requireNonNull(dataClass, "Dataclass can't be null");
         Objects.requireNonNull(uuid, "UUID can't be null");
         NetworkLogger
-                .getLogger()
-                .fine("[Pipeline] Creating new data of type: " + dataClass.getSimpleName() + " [" + uuid + "]");
+                .debug("[Pipeline] Creating new data of type: " + dataClass.getSimpleName() + " [" + uuid + "]");
         T pipelineData = localCache.instantiateData(dataClass, uuid);
         pipelineData.loadDependentData();
         pipelineData.onCreate();
@@ -417,16 +415,19 @@ public class PipelineImpl implements Pipeline {
     }
 
     private void executePipelineTask(CompletableFuture<?> future, Callable<?> callable) {
-        if (executorService.isShutdown() || executorService.isTerminated())
-            throw new IllegalStateException("ExecutorService was shutted down.");
+        if (executorService.isShutdown() || executorService.isTerminated()) {
+            var e = new IllegalStateException("ExecutorService was shutted down.");
+            future.completeExceptionally(e);
+            throw e;
+        }
         if (!ready)
-            future.complete(null);
+            future.cancel(true);
         else
             executorService.submit(() -> {
                 try {
                     callable.call();
                 } catch (Throwable e) {
-                    future.complete(null);
+                    future.completeExceptionally(e);
                     e.printStackTrace();
                     throw new RuntimeException(e);
                 }
