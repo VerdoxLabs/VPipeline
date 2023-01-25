@@ -1,5 +1,6 @@
-package de.verdox.vpipeline.api.messaging.instruction.types;
+package de.verdox.vpipeline.impl.messaging;
 
+import de.verdox.vpipeline.api.messaging.instruction.ResponseCollector;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -10,13 +11,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
-public class Response<T> {
+public class ResponseCollectorImpl<T> implements ResponseCollector<T> {
     private final Map<UUID, CompletableFuture<T>> receivedValues = new ConcurrentHashMap<>();
     private final AtomicBoolean wasCancelled = new AtomicBoolean(false);
     private final Set<BiConsumer<? super T, ? super Throwable>> actions = ConcurrentHashMap.newKeySet();
     private final long amountReceivers;
 
-    public Response(long amountReceivers) {
+    public ResponseCollectorImpl(long amountReceivers) {
         this.amountReceivers = amountReceivers;
     }
 
@@ -29,7 +30,7 @@ public class Response<T> {
         receivedValues.put(transmitter, future);
     }
 
-    public Response<T> whenResponseReceived(@NotNull BiConsumer<? super T, ? super Throwable> action) {
+    public ResponseCollectorImpl<T> whenResponseReceived(@NotNull BiConsumer<? super T, ? super Throwable> action) {
         Objects.requireNonNull(action);
         actions.add(action);
         receivedValues.forEach((uuid, value) -> value.whenComplete(action));
