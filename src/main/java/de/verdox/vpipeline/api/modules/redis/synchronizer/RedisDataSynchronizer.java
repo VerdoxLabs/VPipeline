@@ -46,34 +46,35 @@ public class RedisDataSynchronizer implements Synchronizer {
                 return;
             IPipelineData remoteDataObject = pipeline.getLocalCache().loadObject(dataClass, dataBlock.dataUUID);
 
-            if (remoteDataObject != null) {
-                if (dataBlock instanceof UpdateDataBlock updateDataBlock) {
+            var uuid = dataBlock.dataUUID;
+            var serializedData = "";
+            if (dataBlock instanceof RemoveDataBlock) {
+                NetworkLogger.debug("Received network removal for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
+                if (!pipeline.getLocalCache().remove(dataClass, dataBlock.dataUUID))
                     NetworkLogger
-                            .debug("Received network sync for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
-                    remoteDataObject.onSync(remoteDataObject.deserialize(JsonParser
-                            .parseString(updateDataBlock.dataToUpdate)
-                            .getAsJsonObject()));
-                } else if (dataBlock instanceof RemoveDataBlock) {
-                    NetworkLogger.debug("Received network removal for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
-                    if (!pipeline.getLocalCache().remove(dataClass, dataBlock.dataUUID))
-                        NetworkLogger
-                                .getLogger()
-                                .warning("Could not remove after network removal instruction [" + pipeline
-                                        .getLocalCache()
-                                        .dataExist(dataClass, remoteDataObject.getObjectUUID()) + "]");
-                }
+                            .getLogger()
+                            .warning("Could not remove after network removal instruction [" + pipeline
+                                    .getLocalCache()
+                                    .dataExist(dataClass, uuid) + "]");
                 return;
-            }
+            } else if (dataBlock instanceof UpdateDataBlock updateDataBlock)
+                serializedData = updateDataBlock.dataToUpdate;
+            else if (dataBlock instanceof CreationDataBlock creationDataBlock)
+                serializedData = creationDataBlock.dataToUpdate;
 
-            if (dataBlock instanceof CreationDataBlock creationDataBlock) {
-                //TODO Also send the pipeline data with the block so no pipeline lock is needed to load the data.
-                NetworkLogger.debug("Received network creation for " + dataClass.getSimpleName() + " [" + dataBlock.dataUUID + "]");
+            if (remoteDataObject == null) {
+                NetworkLogger.debug("Received network creation for " + dataClass.getSimpleName() + "[" + dataBlock.dataUUID + "]");
                 this.pipeline
                         .getLocalCache()
-                        .save(dataClass, creationDataBlock.dataUUID, JsonParser.parseString(creationDataBlock.dataToUpdate));
+                        .save(dataClass, uuid, JsonParser.parseString(serializedData));
+            } else {
+                NetworkLogger.debug("Received network sync for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
+                var beforeSync = remoteDataObject.deserialize(serializedData);
+                remoteDataObject.onSync(beforeSync);
             }
         };
         dataTopic.addListener(DataBlock.class, messageListener);
+        NetworkLogger.info("RedisDataSynchronizer started for " + dataClass.getSimpleName());
     }
 
     @Override
