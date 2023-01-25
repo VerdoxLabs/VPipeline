@@ -1,6 +1,6 @@
 package de.verdox.vpipeline.api.messaging.event;
 
-import de.verdox.vpipeline.api.messaging.message.Message;
+import de.verdox.vpipeline.api.messaging.instruction.Instruction;
 
 /**
  * @version 1.0
@@ -13,5 +13,5 @@ import de.verdox.vpipeline.api.messaging.message.Message;
  */
 public interface MessageEvent  {
     String getChannelName();
-    Message getMessage();
+    Instruction<?> getMessage();
 }
