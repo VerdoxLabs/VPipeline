@@ -81,6 +81,7 @@ public record DataReference<T extends IPipelineData>(Pipeline pipeline, Class<? 
                     }
                 }
             }
+            jsonReader.endObject();
 
             if (type == null) {
                 NetworkLogger.getLogger().warning("Error while reading data reference. Type could not be found");
