@@ -37,7 +37,7 @@ public class LocalCacheImpl implements LocalCache {
     }
 
     @Override
-    public synchronized <S extends IPipelineData> void saveObject(@NotNull S object) {
+    public <S extends IPipelineData> void saveObject(@NotNull S object) {
         Objects.requireNonNull(object, "object can't be null!");
         dataProviderLock.executeOnWriteLock(() -> {
 /*        if (dataExist(object.getClass(), object.getObjectUUID())) {
@@ -46,14 +46,12 @@ public class LocalCacheImpl implements LocalCache {
             cache.computeIfAbsent(object.getClass(), aClass -> new ConcurrentHashMap<>())
                  .put(object.getObjectUUID(), object);
             object.updateLastUsage();
-            NetworkLogger
-                    .debug("[LocalCache] Saved " + object + " [" + object.getObjectUUID() + "]");
             return null;
         });
     }
 
     @Override
-    public synchronized boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
         return dataProviderLock.executeOnReadLock(() -> {
@@ -65,7 +63,7 @@ public class LocalCacheImpl implements LocalCache {
     }
 
     @Override
-    public synchronized void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
+    public void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
         dataProviderLock.executeOnWriteLock(() -> {
             IPipelineData foundData = loadObject(dataClass, objectUUID);
             if (foundData == null)
@@ -73,14 +71,12 @@ public class LocalCacheImpl implements LocalCache {
             foundData.updateLastUsage();
             foundData.deserialize(dataToSave);
             saveObject(foundData);
-            NetworkLogger
-                    .debug("[LocalCache] Updated " + foundData + " [" + foundData.getObjectUUID() + "]");
             return null;
         });
     }
 
     @Override
-    public synchronized boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
@@ -102,7 +98,7 @@ public class LocalCacheImpl implements LocalCache {
     }
 
     @Override
-    public synchronized Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
+    public Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         return dataProviderLock.executeOnReadLock(() -> {
             if (!cache.containsKey(dataClass))
@@ -123,7 +119,7 @@ public class LocalCacheImpl implements LocalCache {
 
     @Nullable
     @Override
-    public synchronized <S extends IPipelineData> S loadObject(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
+    public <S extends IPipelineData> S loadObject(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
@@ -137,7 +133,7 @@ public class LocalCacheImpl implements LocalCache {
     }
 
     @Override
-    public synchronized <S extends IPipelineData> Set<S> loadAllData(@NotNull Class<? extends S> dataClass) {
+    public <S extends IPipelineData> Set<S> loadAllData(@NotNull Class<? extends S> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         return dataProviderLock.executeOnReadLock(() -> getSavedUUIDs(dataClass)
                 .stream()
@@ -146,7 +142,7 @@ public class LocalCacheImpl implements LocalCache {
     }
 
     @Override
-    public synchronized <S extends IPipelineData> S instantiateData(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
+    public <S extends IPipelineData> S instantiateData(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
