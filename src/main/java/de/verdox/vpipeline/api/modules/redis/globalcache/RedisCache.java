@@ -34,7 +34,7 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     }
 
     @Override
-    public synchronized JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
         try {
             return JsonParser.parseString(getObjectCache(dataClass, objectUUID).get()).getAsJsonObject();
@@ -46,14 +46,14 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     }
 
     @Override
-    public synchronized boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
         var objectCache = getObjectCache(dataClass, objectUUID);
         return objectCache.isExists();
     }
 
     @Override
-    public synchronized void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
+    public void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
         verifyInput(dataClass, objectUUID);
         RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
         objectCache.set(attachedPipeline.getGson().toJson(dataToSave));
@@ -62,7 +62,7 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     }
 
     @Override
-    public synchronized boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
+    public boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
         RBucket<String> objectCache = getObjectCache(dataClass, objectUUID);
         NetworkLogger.debug("[RedisCache] Removing from redis cache " + dataClass.getSimpleName() + " [" + objectCache + "]");
@@ -70,7 +70,7 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     }
 
     @Override
-    public synchronized Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
+    public Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
 
         return getKeys(dataClass)
@@ -80,7 +80,7 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
     }
 
     @Override
-    public synchronized AttachedPipeline getAttachedPipeline() {
+    public AttachedPipeline getAttachedPipeline() {
         return attachedPipeline;
     }
 
@@ -89,7 +89,7 @@ public class RedisCache extends RedisConnection implements GlobalCache, RemoteSt
         return null;
     }
 
-    private synchronized RBucket<String> getObjectCache(@Nonnull Class<? extends IPipelineData> dataClass, @Nonnull @NotNull UUID objectUUID) {
+    private RBucket<String> getObjectCache(@Nonnull Class<? extends IPipelineData> dataClass, @Nonnull @NotNull UUID objectUUID) {
         verifyInput(dataClass, objectUUID);
 
         String classifier = AnnotationResolver
