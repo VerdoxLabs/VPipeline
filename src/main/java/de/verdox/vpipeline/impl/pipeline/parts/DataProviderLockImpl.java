@@ -26,7 +26,7 @@ public class DataProviderLockImpl implements DataProviderLock {
         try {
             return function.get();
         } finally {
-/*            reentrantLock.writeLock().unlock();*/
+ /*           reentrantLock.writeLock().unlock();*/
         }
     }
 }
