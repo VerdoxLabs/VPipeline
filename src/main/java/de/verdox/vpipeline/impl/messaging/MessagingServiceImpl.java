@@ -10,14 +10,10 @@ import de.verdox.vpipeline.api.messaging.RemoteMessageReceiver;
 import de.verdox.vpipeline.api.messaging.Transmitter;
 import de.verdox.vpipeline.api.messaging.annotations.InstructionInfo;
 import de.verdox.vpipeline.api.messaging.event.MessageEvent;
+import de.verdox.vpipeline.api.messaging.instruction.AbstractInstruction;
 import de.verdox.vpipeline.api.messaging.instruction.Instruction;
-import de.verdox.vpipeline.api.messaging.instruction.Responder;
-import de.verdox.vpipeline.api.messaging.instruction.SimpleInstruction;
-import de.verdox.vpipeline.api.messaging.instruction.TransmittedData;
+import de.verdox.vpipeline.api.messaging.instruction.ResponseCollector;
 import de.verdox.vpipeline.api.messaging.instruction.types.Ping;
-import de.verdox.vpipeline.api.messaging.instruction.types.Response;
-import de.verdox.vpipeline.api.messaging.message.Message;
-import de.verdox.vpipeline.api.messaging.message.MessageWrapper;
 import de.verdox.vpipeline.api.network.RemoteParticipant;
 import de.verdox.vpipeline.impl.messaging.event.MessageEventImpl;
 import org.jetbrains.annotations.NotNull;
@@ -27,13 +23,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 public class MessagingServiceImpl implements MessagingService {
+
     private final ConcurrentHashMap<UUID, Instruction<?>> pendingInstructions = new ConcurrentHashMap<>();
     private final Map<UUID, RemoteMessageReceiverImpl> remoteParticipants = new ConcurrentHashMap<>();
     private final Set<RemoteMessageReceiverImpl> receivedKeepAlivePings = ConcurrentHashMap.newKeySet();
     private final EventBus eventBus;
-    private final MessageFactory messageFactory;
+    private MessageFactoryImpl messageFactoryImpl;
     private final Transmitter transmitter;
     private final UUID sessionUUID;
     private final String sessionIdentifier;
@@ -46,14 +44,14 @@ public class MessagingServiceImpl implements MessagingService {
         this.sessionIdentifier = sessionIdentifier;
         this.transmitter = transmitter;
         sessionUUID = RemoteParticipant.getParticipantUUID(sessionIdentifier);
+
+        this.messageFactoryImpl = new MessageFactoryImpl(this);
+        this.messageFactoryImpl.registerInstructionType(9998, KeepAlivePing.class, () -> new KeepAlivePing(UUID.randomUUID()));
+        this.messageFactoryImpl.registerInstructionType(9999, OfflinePing.class, () -> new OfflinePing(UUID.randomUUID()));
         this.transmitter.setMessagingService(this);
+
         this.eventBus = new EventBus();
         eventBus.register(this);
-        this.messageFactory = new MessageFactoryImpl(this);
-
-
-        messageFactory.registerInstructionType(9992, OfflinePing.class, () -> new OfflinePing(UUID.randomUUID()));
-        messageFactory.registerInstructionType(9993, KeepAlivePing.class, () -> new KeepAlivePing(UUID.randomUUID()));
 
         remoteParticipants.put(sessionUUID, new RemoteMessageReceiverImpl(sessionUUID, sessionIdentifier));
         sendKeepAlivePing();
@@ -68,161 +66,153 @@ public class MessagingServiceImpl implements MessagingService {
                             .equals(sessionUUID));
             receivedKeepAlivePings.clear();
             pendingInstructions.forEach((uuid, instruction) -> pendingInstructions.computeIfPresent(uuid, (uuid1, instruction1) -> {
-                if (!instruction1.getResponse().hasReceivedAllAnswers())
+                if (!instruction1.getResponseCollector().hasReceivedAllAnswers())
                     return instruction1;
-                instruction1.getResponse().cancel();
+                if (instruction1.getResponseCollector() instanceof ResponseCollectorImpl<?> responseCollector)
+                    responseCollector.cancel();
                 return null;
             }));
         }, 0, 10, TimeUnit.SECONDS);
     }
 
-    public void setNetworkParticipant(NetworkParticipant networkParticipant) {
-        this.networkParticipant = networkParticipant;
-    }
-
-    @Override
-    public <T> Response<T> sendInstruction(@NotNull Instruction<T> instruction, UUID... receivers) {
-        if (!(instruction instanceof SimpleInstruction<?> instructionImpl)) {
-            NetworkLogger.warning("[" + sessionIdentifier + "] Dumping unknown instruction");
-            return instruction.getResponse();
-        }
-        NetworkLogger.debug("[" + sessionIdentifier + "] Sending instruction " + instruction.getClass()
-                                                                                            .getSimpleName());
-        instructionImpl.setNetworkParticipant(networkParticipant);
-
-        InstructionInfo instructionInfo = getMessageFactory().findInstructionInfo((Class<? extends Instruction<?>>) instruction.getClass());
-        UUID uuid = instruction.getUUID();
-
-        Message message = getMessageFactory().constructMessage(instruction);
-        Objects.requireNonNull(message);
-
-        var receiversAmount = receivers.length == 0 ? transmitter.getNetworkTransmitterAmount() : receivers.length;
-
-        if (instruction.onSend(new TransmittedData(sessionUUID, getSessionIdentifier(), List.of(instruction.getData())), receiversAmount)) {
-            if (receivers.length == 0) {
-                if (!(instruction instanceof Ping))
-                    NetworkLogger.info("Broadcasting " + instruction.getClass().getSimpleName() + " to network");
-                getTransmitter().broadcastMessage(message);
-            } else {
-                if (!(instruction instanceof Ping))
-                    NetworkLogger.info("Sending " + instruction.getClass()
-                                                               .getSimpleName() + " to " + Arrays.toString(receivers));
-                getTransmitter().sendMessage(message, receivers);
-            }
-            if (instructionInfo.awaitsResponse())
-                pendingInstructions.put(message.getInstructionUUID(), instruction);
-        } else {
-            NetworkLogger.warning("[" + sessionIdentifier + "] Instruction was dumped before sending");
-        }
-        return instruction.getResponse();
-    }
-
     @Subscribe
     private void onMessage(MessageEvent messageEvent) {
         try {
-            var message = messageEvent.getMessage();
-            if (!isValidMessage(message)) {
-                NetworkLogger.warning("Message is invalid");
+            var instruction = messageEvent.getMessage();
+            if (instruction == null) {
+                throw new IllegalArgumentException("[" + getSessionIdentifier() + "] Instruction in event was null");
+            }
+            if (!(instruction instanceof AbstractInstruction<?> abstractInstruction)) {
+                NetworkLogger.warning("[" + getSessionIdentifier() + "] Message of type " + instruction.getClass()
+                                                                                                       .getSimpleName() + " in event is not a subtype of " + AbstractInstruction.class.getSimpleName());
                 return;
             }
 
-            var cachedInstructionData = getMessageFactory().getInstructionType(message.getInstructionID());
-            if (cachedInstructionData == null) {
-                NetworkLogger.warning("Message type is unknown");
+
+            if (!messageFactoryImpl.isTypeRegistered((Class<? extends Instruction<?>>) instruction.getClass())) {
+                NetworkLogger.warning("[" + getSessionIdentifier() + "] Message type is unknown");
                 return;
             }
 
-            var instructionType = cachedInstructionData.type();
-
-            if (message.isInstruction())
-                handleInstruction(message, cachedInstructionData);
-            else if (message.isResponse())
-                handleResponse(message);
+            if (!instruction.isResponse())
+                handleInstruction(abstractInstruction);
             else
-                NetworkLogger.warning("Message with type " + instructionType.getSimpleName() + " is neither an instruction nor a response");
+                handleResponse(abstractInstruction);
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException(e);
         }
     }
 
-    private void handleInstruction(Message message, MessageFactory.CachedInstructionData<?> instructionData) {
-        InstructionInfo instructionInfo = getMessageFactory().findInstructionInfo(instructionData.type());
-        Instruction<?> response = instructionData.instanceSupplier().get();
-        var instructionType = instructionData.type();
-        response.onReceive(new TransmittedData(message.getSender(), message.getSenderIdentifier(), message.dataToSend()));
+    @Override
+    public <R, T extends Instruction<R>> ResponseCollector<R> sendInstruction(@NotNull T instruction, UUID... receivers) {
+        if (!(instruction instanceof AbstractInstruction<?> abstractInstruction)) {
+            NetworkLogger.warning("[" + getSessionIdentifier() + "] Message is not a subtype of " + AbstractInstruction.class.getSimpleName());
+            return null;
+        }
+
+        var receiversAmount = receivers.length == 0 ? transmitter.getNetworkTransmitterAmount() : receivers.length;
+        InstructionInfo instructionInfo = messageFactoryImpl.findInstructionInfo((Class<? extends AbstractInstruction<?>>) instruction.getClass());
+        var registeredID = messageFactoryImpl.findInstructionID(instruction);
+        if (registeredID == -1)
+            throw new IllegalArgumentException("[" + getSessionIdentifier() + "] Instruction of type " + instruction
+                    .getClass()
+                    .getSimpleName() + " is not registered yet");
+
+        NetworkLogger.debug("[" + getSessionIdentifier() + "] Sending instruction " + instruction.getClass()
+                                                                                                 .getSimpleName());
+
+        if (instruction.onSend(this, receiversAmount)) {
+            abstractInstruction.setupInstruction(registeredID, getSessionUUID(), getSessionIdentifier());
+            abstractInstruction.setResponseCollector(new ResponseCollectorImpl<>(receiversAmount));
+            if (receivers.length == 0) {
+                transmitter.broadcastMessage(instruction);
+            } else {
+                transmitter.sendMessage(instruction, receivers);
+            }
+            if (instructionInfo.awaitsResponse())
+                pendingInstructions.put(instruction.getUuid(), instruction);
+        } else {
+            abstractInstruction.setResponseCollector(new ResponseCollectorImpl<>(0));
+            var responseCollector = (ResponseCollectorImpl<R>) abstractInstruction.getResponseCollector();
+
+            if (abstractInstruction.getResponseToSend() != null) {
+                NetworkLogger.debug("[" + getSessionIdentifier() + "] Instruction was executed locally.");
+                responseCollector.complete(getSessionUUID(), (R) abstractInstruction.getResponseToSend());
+
+            } else {
+                NetworkLogger.debug("[" + getSessionIdentifier() + "] Instruction was cancelled before sending");
+                responseCollector.cancel();
+            }
+
+        }
+        return instruction.getResponseCollector();
+    }
+
+    @Override
+    public <R, T extends Instruction<R>> ResponseCollector<R> sendInstruction(@NotNull Class<? extends T> instructionType, Consumer<T> consumer, UUID... receivers) {
+
+        var id = getMessageFactory().findInstructionID(instructionType);
+        if (id == -1)
+            throw new IllegalArgumentException("[" + getSessionIdentifier() + "] Instruction not registered in message factory yet");
+
+
+        var instruction = getMessageFactory().getInstructionType(id).instanceSupplier().get();
+        consumer.accept((T) instruction);
+
+        return (ResponseCollector<R>) sendInstruction(instruction, receivers);
+    }
+
+    private <R, T extends AbstractInstruction<R>> void handleInstruction(@NotNull T instruction) {
+        var response = instruction.onInstructionReceive(this);
+        var instructionInfo = messageFactoryImpl.findInstructionInfo((Class<? extends AbstractInstruction<?>>) instruction.getClass());
+        NetworkLogger.debug("[" + getSessionIdentifier() + "] Received instruction of type: " + instruction.getClass()
+                                                                                                          .getSimpleName());
         if (!instructionInfo.awaitsResponse()) {
-            NetworkLogger.debug(instructionType.getSimpleName() + " does not await a response");
+            NetworkLogger.debug("[" + getSessionIdentifier() + "] " + instruction.getClass()
+                                                                                 .getSimpleName() + " does not await a response");
             return;
         }
 
-        NetworkLogger.info("Received instruction of type: " + instructionType.getSimpleName());
 
-        if (!(response instanceof SimpleInstruction<?> instructionImpl) || !(response instanceof Responder responder) || (pendingInstructions.containsKey(message.getSender()) && !responder.respondToItself()))
+        sendResponse(instruction, response);
+    }
+
+    private <R, T extends AbstractInstruction<R>> void sendResponse(@NotNull T instruction, R response) {
+        NetworkLogger.debug("[" + getSessionIdentifier() + "] Sending response for " + instruction.getClass()
+                                                                                                 .getSimpleName() + " to " + instruction.getSenderIdentifier());
+        instruction.setResponseToSend(response);
+
+        var originalSender = instruction.getSenderUUID();
+
+        instruction.setupInstruction(instruction.getInstructionID(), getSessionUUID(), getSessionIdentifier());
+
+        getTransmitter().sendMessage(instruction, originalSender);
+    }
+
+    private <R, T extends AbstractInstruction<R>> void handleResponse(@NotNull T response) {
+        NetworkLogger.debug("[" + getSessionIdentifier() + "] Received response from" + response
+                .getSenderIdentifier());
+        if (!pendingInstructions.containsKey(response.getUuid()))
             return;
-        instructionImpl.setNetworkParticipant(networkParticipant);
-        NetworkLogger.info("[" + getSessionIdentifier() + "] Answering " + instructionType.getSimpleName());
-        List<Object> responseData = ((Responder) response).respondToData(new TransmittedData(message.getSender(), message.getSenderIdentifier(), message.dataToSend()));
-        if (responseData == null || responseData.size() == 0) {
-            NetworkLogger.info("[" + getSessionIdentifier() + "] " + instructionType.getSimpleName() + " response is empty so it wont be sent");
-            return;
+        T instructionLeft = (T) pendingInstructions.get(response.getUuid());
+        NetworkLogger.debug("Handling response");
+        if (response.isResponse() && !instructionLeft.isResponse()) {
+            if (instructionLeft.getResponseCollector() instanceof ResponseCollectorImpl responseCollector)
+                responseCollector.complete(response.getSenderUUID(), response.getResponseToSend());
+            instructionLeft.onResponseReceive(this, response.getResponseToSend());
         }
-        sendResponse(message, responseData);
     }
 
-    private void sendResponse(Message message, List<Object> responseData) {
-        Message response = getMessageFactory().constructResponse(message.getInstructionID(), message.getInstructionUUID(), message.dataToSend(), responseData);
-        NetworkLogger.info("[" + getSessionIdentifier() + "] Sending response to " + message
-                .getSenderIdentifier());
-        getTransmitter().sendMessage(response, message.getSender());
+
+    public void postMessageEvent(String channelName, Instruction<?> message) {
+        Objects.requireNonNull(channelName);
+        Objects.requireNonNull(message);
+        this.eventBus.post(new MessageEventImpl(channelName, message));
     }
 
-    private void handleResponse(Message message) {
-        NetworkLogger.info("[" + getSessionIdentifier() + "] Received response from" + message
-                .getSenderIdentifier());
-        if (!pendingInstructions.containsKey(message.getInstructionUUID()))
-            return;
-        Instruction<?> instructionLeft = pendingInstructions.get(message.getInstructionUUID());
-        if (!(instructionLeft instanceof SimpleInstruction<?> instructionImpl) || !(instructionLeft instanceof Responder responder))
-            return;
-        NetworkLogger.info("Handling response");
-        instructionImpl.setNetworkParticipant(networkParticipant);
-        responder.onResponseReceive(new TransmittedData(getSessionUUID(), getSessionIdentifier(), message.dataToSend()), new TransmittedData(message.getSender(), message.getSenderIdentifier(), message.response()));
-    }
-
-    @Override
-    public Transmitter getTransmitter() {
-        return transmitter;
-    }
-
-    @Override
-    public NetworkParticipant getNetworkParticipant() {
-        return networkParticipant;
-    }
-
-    @Override
-    public MessageFactory getMessageFactory() {
-        return messageFactory;
-    }
-
-    @Override
-    public UUID getSessionUUID() {
-        return sessionUUID;
-    }
-
-    @Override
-    public void shutdown() {
-        NetworkLogger.info("Shutting down message transmitter");
-        sendOfflinePing();
-        this.pendingInstructions.forEach((uuid, instruction) -> instruction.getResponse().cancel());
-        this.keepAliveThread.shutdownNow();
-        transmitter.shutdown();
-        NetworkLogger.info("MessagingService is offline");
-    }
-
-    @Override
-    public String getSessionIdentifier() {
-        return sessionIdentifier;
+    public void setNetworkParticipant(NetworkParticipant networkParticipant) {
+        this.networkParticipant = networkParticipant;
     }
 
     @Override
@@ -231,21 +221,64 @@ public class MessagingServiceImpl implements MessagingService {
     }
 
     @Override
-    public void postMessageEvent(String channelName, Message message) {
-        eventBus.post(new MessageEventImpl(channelName, message));
-    }
-
-    private boolean isValidMessage(Message message) {
-        return message.parameterContains(INSTRUCTION_IDENTIFIER) || message.parameterContains(RESPONSE_IDENTIFIER);
+    public void sendKeepAlivePing() {
+        sendInstruction(KeepAlivePing.class, keepAlivePing -> {
+        });
     }
 
     private void sendOfflinePing() {
-        sendInstruction(new OfflinePing(UUID.randomUUID()).withData(sessionUUID, sessionIdentifier));
+        sendInstruction(OfflinePing.class, offlinePing -> {
+        });
     }
 
     @Override
-    public void sendKeepAlivePing() {
-        sendInstruction(new KeepAlivePing(UUID.randomUUID()).withData(sessionUUID, sessionIdentifier));
+    public void shutdown() {
+        NetworkLogger.info("Shutting down message transmitter");
+        sendOfflinePing();
+        this.pendingInstructions.forEach((uuid, instruction) -> {
+            if (instruction.getResponseCollector() instanceof ResponseCollectorImpl<?> responseCollector)
+                responseCollector.cancel();
+        });
+        this.keepAliveThread.shutdownNow();
+        transmitter.shutdown();
+        NetworkLogger.info("MessagingService is offline");
+    }
+
+    @Override
+    public NetworkParticipant getNetworkParticipant() {
+        return networkParticipant;
+    }
+
+    @Override
+    public Transmitter getTransmitter() {
+        return transmitter;
+    }
+
+    @Override
+    public UUID getSessionUUID() {
+        return sessionUUID;
+    }
+
+    @Override
+    public String getSessionIdentifier() {
+        return sessionIdentifier;
+    }
+
+    @Override
+    public MessageFactory getMessageFactory() {
+        return messageFactoryImpl;
+    }
+
+    public class KeepAlivePing extends Ping {
+        public KeepAlivePing(@NotNull UUID uuid) {
+            super(uuid);
+        }
+
+        @Override
+        public void onPingReceive(MessagingService messagingService) {
+            if (messagingService instanceof MessagingServiceImpl messagingServiceImpl)
+                messagingServiceImpl.receivedKeepAlivePings.add(new RemoteMessageReceiverImpl(this.getSenderUUID(), this.getSenderIdentifier()));
+        }
     }
 
     public class OfflinePing extends Ping {
@@ -254,46 +287,11 @@ public class MessagingServiceImpl implements MessagingService {
         }
 
         @Override
-        public List<Class<?>> instructionDataTypes() {
-            return List.of(UUID.class, String.class);
-        }
+        public void onPingReceive(MessagingService messagingService) {
+            var sender = getSenderUUID();
 
-        @Override
-        public void onPingReceive(TransmittedData instructionData) {
-            var transmitterUUID = instructionData.transmitter();
-            var transmitterID = instructionData.transmitterIdentifier();
-
-            NetworkLogger.debug(transmitterID + " offline on messaging network");
-            remoteParticipants.remove(transmitterUUID);
-        }
-    }
-
-    public class KeepAlivePing extends Ping {
-
-        public KeepAlivePing(@NotNull UUID uuid) {
-            super(uuid);
-        }
-
-        @Override
-        public List<Class<?>> instructionDataTypes() {
-            return List.of(UUID.class, String.class);
-        }
-
-        @Override
-        public void onPingReceive(TransmittedData instructionData) {
-            var transmitterUUID = instructionData.transmitter();
-            var transmitterID = instructionData.transmitterIdentifier();
-
-            var foundEntry = remoteParticipants.getOrDefault(transmitterUUID, null);
-            if (foundEntry == null) {
-                NetworkLogger.debug(transmitterID + " online on messaging network");
-                remoteParticipants.put(transmitterUUID, new RemoteMessageReceiverImpl(transmitterUUID, transmitterID));
-                return;
-            }
-
-            NetworkLogger.debug(transmitterID + " pinged alive on messaging network");
-            foundEntry.updateKeepAlive();
-            receivedKeepAlivePings.add(foundEntry);
+            if (messagingService instanceof MessagingServiceImpl messagingServiceImpl)
+                messagingServiceImpl.remoteParticipants.remove(sender);
         }
     }
 }
