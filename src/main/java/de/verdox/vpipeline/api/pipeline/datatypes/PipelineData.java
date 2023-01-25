@@ -125,13 +125,14 @@ public abstract class PipelineData implements IPipelineData {
 
         @Override
         public void pushUpdate(@NotNull IPipelineData data, Runnable callback) {
-            NetworkLogger.getLogger().warning("Syncing with dummy data synchronizer");
+            NetworkLogger.getLogger()
+                         .warning("[" + data.getAttachedPipeline().getAttachedPipeline().getNetworkParticipant()
+                                            .getIdentifier() + "] Syncing with dummy data synchronizer");
             CallbackUtil.runIfNotNull(callback);
         }
 
         @Override
         public void pushRemoval(@NotNull UUID uuid, Runnable callback) {
-            NetworkLogger.getLogger().warning("Removing with dummy data synchronizer");
             CallbackUtil.runIfNotNull(callback);
         }
 
