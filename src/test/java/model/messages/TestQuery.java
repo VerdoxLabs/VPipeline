@@ -1,6 +1,7 @@
 package model.messages;
 
-import de.verdox.vpipeline.api.messaging.instruction.TransmittedData;
+import de.verdox.vpipeline.api.NetworkLogger;
+import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.messaging.instruction.types.Query;
 import org.jetbrains.annotations.NotNull;
 
@@ -13,15 +14,12 @@ public class TestQuery extends Query<String> {
     }
 
     @Override
-    public List<Object> respondToData(TransmittedData instructionData) {
-        if (isOwnTransmittedData(instructionData))
-            return null;
-        else
-            return List.of("test");
+    public String onInstructionReceive(MessagingService messagingService) {
+        return "test";
     }
 
     @Override
-    protected String interpretResponse(TransmittedData responseData) {
-        return (String) responseData.data().get(0);
+    public void onResponseReceive(MessagingService messagingService, String response) {
+        NetworkLogger.info("Received query answer: " + response);
     }
 }

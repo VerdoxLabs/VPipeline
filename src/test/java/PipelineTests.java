@@ -158,6 +158,11 @@ public class PipelineTests {
                 .getDataRegistry()
                 .registerType(LoadBeforeTest.class);
 
+        jsonNetworkParticipant
+                .pipeline()
+                .getDataRegistry()
+                .registerType(TestData.class);
+
         mysqlNetworkParticipant
                 .pipeline()
                 .getDataRegistry()
