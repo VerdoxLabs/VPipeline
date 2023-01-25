@@ -1,39 +1,39 @@
 package de.verdox.vpipeline.api.messaging.instruction;
 
-import de.verdox.vpipeline.api.NetworkParticipant;
+import de.verdox.vpipeline.api.messaging.MessagingService;
+import de.verdox.vpipeline.impl.messaging.ResponseCollectorImpl;
 
-import java.util.List;
 import java.util.UUID;
 
 
-public interface Instruction<T> extends Sender<T> {
-    Instruction<T> withData(Object... data);
+public interface Instruction<R> {
 
-    UUID getUUID();
-
-    /**
-     * @return The data that will be sent with this instruction
-     */
-    Object[] getData();
-
-    boolean isOwnTransmittedData(TransmittedData transmittedData);
-
-    /**
-     * @return The timestamp when the instruction was created.
-     */
+    UUID getUuid();
+    int getInstructionID();
     long getCreationTimeStamp();
+    boolean isResponse();
+    UUID getSenderUUID();
+    String getSenderIdentifier();
 
     /**
-     * @return The list of data types that are accepted by this instruction.
+     * @param receiversAmount Amount of clients that will receive the instruction
+     * @return True if the instruction should be sent to the network
      */
-    List<Class<?>> instructionDataTypes();
+    boolean onSend(MessagingService messagingService, long receiversAmount);
 
     /**
-     * This method defines the instructions parameters. Normally implemented by a class with constant parameters.
+     * Defines what happens if a network client receives this instruction.
      *
-     * @return The list of parameters to identify this instruction
+     * @return The defined return value
      */
-    List<String> instructionPath();
+    R onInstructionReceive(MessagingService messagingService);
 
-    NetworkParticipant getCurrentClient();
+    /**
+     * Defines what happens if a network client receives a response to its sent instruction
+     * @param response The response the client has received.
+     */
+    void onResponseReceive(MessagingService messagingService, R response);
+
+    ResponseCollector<R> getResponseCollector();
 }
+
