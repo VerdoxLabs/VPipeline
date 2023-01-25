@@ -2,8 +2,10 @@ package de.verdox.vpipeline.api.pipeline.datatypes;
 
 import com.google.gson.JsonElement;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
+import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.Serializable;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -72,6 +74,7 @@ public interface IPipelineData {
      * @return The Data before deserialization
      */
     String deserialize(JsonElement jsonObject);
+    String deserialize(String jsonString);
 
     @NotNull
     Synchronizer getSynchronizer();
