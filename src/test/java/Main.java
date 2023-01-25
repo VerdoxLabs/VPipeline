@@ -15,8 +15,6 @@ public class Main {
 
         var service1 = MessagingTests.createTestService("server1");
         var service2 = MessagingTests.createTestService("server2");
-
-        var testUpdate = TestUpdate.createInstruction(TestUpdate.class).withData("hi");
     }
 
 /*    public static void testDataReference() throws InterruptedException {
