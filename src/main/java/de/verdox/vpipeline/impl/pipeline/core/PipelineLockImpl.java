@@ -5,8 +5,10 @@ import de.verdox.vpipeline.api.pipeline.core.PipelineLock;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 import org.jetbrains.annotations.Nullable;
+import org.redisson.api.RLock;
 
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -55,7 +57,7 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
             NetworkLogger.debug("Cancelled runOnReadLock operation because pipeline was shutted down.");
         else {
             try {
-                readLock().lock();
+                lockRead();
                 NetworkLogger.debug("Acquired readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
                 runnable.run();
             } catch (Exception e) {
@@ -76,11 +78,13 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
             return null;
         } else {
             try {
-                readLock().lock();
+                lockRead();
                 NetworkLogger.debug("Acquired readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
                 var localCacheData = pipeline.getLocalCache().loadObject(getObjectType(), getObjectUUID());
-                NetworkLogger.debug("Performing getter operation on " + localCacheData);
                 return getter.apply(localCacheData);
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new RuntimeException(e);
             } finally {
                 readLock().unlock();
                 NetworkLogger.debug("Released readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
@@ -91,13 +95,12 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
     @Override
     public synchronized void runOnWriteLock(Runnable runnable) {
         if (!pipeline.isReady())
-            NetworkLogger.debug("Cancelled runOnWriteLock operation because pipeline was shutted down.");
+            NetworkLogger.warning("Cancelled runOnWriteLock operation because pipeline was shutted down.");
         else {
             try {
-                writeLock().lock();
+                lockWrite();
                 NetworkLogger.debug("Acquired writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
                 runnable.run();
-
             } catch (Exception e) {
                 e.printStackTrace();
                 throw new RuntimeException(e);
@@ -111,15 +114,17 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
     @Override
     public synchronized PipelineLock<T> performReadOperation(Consumer<T> reader) {
         if (!pipeline.isReady()) {
-            NetworkLogger.debug("Cancelled read operation because pipeline was shutted down.");
+            NetworkLogger.warning("Cancelled read operation because pipeline was shutted down.");
         } else {
             try {
-                readLock().lock();
+                lockRead();
                 NetworkLogger.debug("Acquired readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
                 var localCacheData = pipeline.getLocalCache().loadObject(getObjectType(), getObjectUUID());
-                NetworkLogger.debug("Performing read operation on " + localCacheData);
                 if (localCacheData != null)
                     reader.accept(localCacheData);
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new RuntimeException(e);
             } finally {
                 readLock.unlock();
                 NetworkLogger.debug("Released readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
@@ -131,14 +136,13 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
     @Override
     public synchronized PipelineLock<T> performWriteOperation(Consumer<T> writer, boolean pushToNetwork) {
         if (!pipeline.isReady()) {
-            NetworkLogger.debug("Cancelled write operation because pipeline was shutted down.");
+            NetworkLogger.warning("Cancelled write operation because pipeline was shutted down.");
             return this;
         }
         try {
-            writeLock().lock();
+            lockWrite();
             NetworkLogger.debug("Acquired writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
             var localCacheData = pipeline.getLocalCache().loadObject(getObjectType(), getObjectUUID());
-            NetworkLogger.debug("Performing write operation on " + localCacheData);
             if (localCacheData != null) {
                 writer.accept(localCacheData);
                 if (pushToNetwork) {
@@ -147,6 +151,9 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
                     });
                 }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
         } finally {
             writeLock().unlock();
             NetworkLogger.debug("Released writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
@@ -157,17 +164,20 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
     @Override
     public synchronized PipelineLock<T> performSaveOperation(boolean saveToStorage) {
         if (!pipeline.isReady()) {
-            NetworkLogger.debug("Cancelled write operation because pipeline was shutted down.");
+            NetworkLogger.warning("Cancelled write operation because pipeline was shutted down.");
             return this;
         }
 
         try {
-            writeLock().lock();
+            lockWrite();
             NetworkLogger.debug("Acquired writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
             NetworkLogger.debug("Performing save operation");
             var localCacheData = pipeline.getLocalCache().loadObject(getObjectType(), getObjectUUID());
             if (localCacheData != null)
-                localCacheData.save(saveToStorage).join();
+                localCacheData.save(saveToStorage).orTimeout(5, TimeUnit.SECONDS).join();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
         } finally {
             writeLock().unlock();
             NetworkLogger.debug("Released writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
@@ -179,5 +189,19 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
     @Override
     public DataReference<T> asReference() {
         return pipeline.createDataReference(getObjectType(), getObjectUUID());
+    }
+
+    private void lockRead() {
+        if(readLock instanceof RLock rLock)
+            rLock.lock(10, TimeUnit.SECONDS);
+        else
+            readLock.lock();
+    }
+
+    private void lockWrite() {
+        if(writeLock instanceof RLock rLock)
+            rLock.lock(10, TimeUnit.SECONDS);
+        else
+            writeLock.lock();
     }
 }
