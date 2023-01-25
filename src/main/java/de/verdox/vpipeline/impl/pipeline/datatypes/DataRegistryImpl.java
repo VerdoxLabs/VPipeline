@@ -60,6 +60,11 @@ public class DataRegistryImpl implements DataRegistry {
     }
 
     @Override
+    public boolean isTypeRegistered(Class<? extends IPipelineData> type) {
+        return cache.entrySet().stream().anyMatch(stringSetEntry -> stringSetEntry.getValue().contains(type));
+    }
+
+    @Override
     @Nullable
     public Class<? extends IPipelineData> getTypeByStorageId(@NotNull String storageIdentifier) {
         Objects.requireNonNull(storageIdentifier);
