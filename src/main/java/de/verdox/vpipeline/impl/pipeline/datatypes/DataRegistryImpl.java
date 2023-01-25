@@ -45,6 +45,8 @@ public class DataRegistryImpl implements DataRegistry {
         var map = cache.computeIfAbsent(classifier, s -> new HashSet<>());
         typesByDataStorageId.put(dataStorageID, type);
         map.add(type);
+        if (pipeline.getSynchronizingService() != null)
+            pipeline.getSynchronizingService().getOrCreate(pipeline, type);
     }
 
     @Override
