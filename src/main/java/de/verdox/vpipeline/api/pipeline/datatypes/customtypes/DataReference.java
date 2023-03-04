@@ -14,6 +14,8 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 public record DataReference<T extends IPipelineData>(Pipeline pipeline, Class<? extends T> type, UUID uuid) {
     public static <T extends IPipelineData> DataReference<T> of(Pipeline pipeline, Class<? extends T> type, UUID uuid) {
@@ -34,6 +36,47 @@ public record DataReference<T extends IPipelineData>(Pipeline pipeline, Class<? 
 
     public CompletableFuture<PipelineLock<T>> load() {
         return pipeline.load(type, uuid);
+    }
+
+    public <O> O get(Function<? super T, ? extends O> getter) {
+        return loadOrCreate().join().getter(getter);
+    }
+
+    public CompletableFuture<Void> writeAsync(Consumer<T> writer) {
+        var future = new CompletableFuture<Void>();
+        loadOrCreate().whenComplete((tPipelineLock, throwable) -> {
+            tPipelineLock.performWriteOperation(writer, true);
+            future.complete(null);
+        });
+        return future;
+    }
+
+    public CompletableFuture<Void> runAsync(Consumer<T> writer) {
+        var future = new CompletableFuture<Void>();
+        loadOrCreate().whenComplete((tPipelineLock, throwable) -> {
+            tPipelineLock.performReadOperation(writer);
+            future.complete(null);
+        });
+        return future;
+    }
+
+    public <O> CompletableFuture<O> getAsync(Function<? super T, ? extends O> getter) {
+        var future = new CompletableFuture<O>();
+        loadOrCreate().whenComplete((tPipelineLock, throwable) -> future.complete(tPipelineLock.getter(getter)));
+        return future;
+    }
+
+    @Nullable
+    public <O> O getUnsafe(Function<? super T, ? extends O> getter) {
+        var localObject = pipeline.getLocalCache().loadObject(type, uuid);
+        if (localObject == null) {
+            load();
+            return null;
+        }
+        var localResult = getter.apply(localObject);
+        if (localResult == null)
+            load();
+        return localResult;
     }
 
     public static class ReferenceAdapter extends TypeAdapter<DataReference<?>> {
