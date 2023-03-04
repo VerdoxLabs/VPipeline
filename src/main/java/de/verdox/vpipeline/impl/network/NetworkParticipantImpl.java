@@ -5,6 +5,7 @@ import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.network.RemoteParticipant;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
@@ -59,8 +60,9 @@ public record NetworkParticipantImpl(UUID uuid, String identifier, @Nullable Pip
     }
 
     @Override
-    public DataReference<RemoteParticipant> getOnlineNetworkClient(String identifier) {
+    public DataReference<RemoteParticipant> getOnlineNetworkClient(@NotNull String identifier) {
         Objects.requireNonNull(pipeline);
+        Objects.requireNonNull(identifier);
         return pipeline.createDataReference(RemoteParticipantImpl.class, RemoteParticipant.getParticipantUUID(identifier));
     }
 
