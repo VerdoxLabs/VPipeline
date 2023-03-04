@@ -468,16 +468,7 @@ public class PipelineImpl implements Pipeline {
     @Override
     public <T extends IPipelineData> CompletableFuture<Boolean> saveAndRemoveFromLocalCache(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         var future = new CompletableFuture<Boolean>();
-        var lock = load(dataClass, uuid);
-        if (lock == null)
-            return CompletableFuture.completedFuture(false);
-
-        lock.whenComplete((pipelineLock, throwable) -> {
-            pipelineLock.performWriteOperation(t -> t
-                    .save(true)
-                    .join());
-            future.complete(getLocalCache().remove(dataClass, uuid));
-        });
+        pipelineSynchronizer.doSync(dataClass, uuid, true, () -> future.complete(getLocalCache().remove(dataClass, uuid)));
         return future;
     }
 
