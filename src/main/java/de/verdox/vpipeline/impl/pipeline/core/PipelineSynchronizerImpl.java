@@ -75,15 +75,19 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
         return true;
     }
 
-    void doSync(@NotNull IPipelineData iPipelineData, boolean syncWithStorage, Runnable callback) {
-        doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, iPipelineData.getClass(), iPipelineData.getObjectUUID(), () -> {
+    void doSync(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, boolean syncWithStorage, Runnable callback) {
+        doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, dataClass, objectUUID, () -> {
             if (syncWithStorage)
-                doSynchronize(DataSourceType.LOCAL, DataSourceType.GLOBAL_STORAGE, iPipelineData.getClass(), iPipelineData.getObjectUUID(), () -> {
-                    syncLocalInstances(iPipelineData.getClass(), iPipelineData.getObjectUUID(), () -> CallbackUtil.runIfNotNull(callback));
+                doSynchronize(DataSourceType.LOCAL, DataSourceType.GLOBAL_STORAGE, dataClass, objectUUID, () -> {
+                    syncLocalInstances(dataClass, objectUUID, () -> CallbackUtil.runIfNotNull(callback));
                 });
             else
-                syncLocalInstances(iPipelineData.getClass(), iPipelineData.getObjectUUID(), () -> CallbackUtil.runIfNotNull(callback));
+                syncLocalInstances(dataClass, objectUUID, () -> CallbackUtil.runIfNotNull(callback));
         });
+    }
+
+    void doSync(@NotNull IPipelineData iPipelineData, boolean syncWithStorage, Runnable callback) {
+        doSync(iPipelineData.getClass(), iPipelineData.getObjectUUID(), syncWithStorage, callback);
     }
 
     void syncLocalInstances(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback) {
