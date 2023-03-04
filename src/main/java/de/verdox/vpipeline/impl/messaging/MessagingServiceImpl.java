@@ -100,7 +100,6 @@ public class MessagingServiceImpl implements MessagingService {
                 handleResponse(abstractInstruction);
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException(e);
         }
     }
 
