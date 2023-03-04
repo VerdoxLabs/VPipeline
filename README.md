@@ -1,15 +1,12 @@
 
 # VPipeline (Beta)
 
-VPipeline is a library that was primarily designed for real-time synchronization 
-via a global Redis cache. In addition to this framework, it offers
-platform-dependent library code that can relieve some of the work for e.g. Spigot plugins.
+VPipeline is a library that was primarily designed for VCore which is a platform indepentent Minecraft Server Plugin primarily used to synchronize data across multiple servers.
 
-This project is currently under heavy development. When there is a first stable version I will let you guys know.
+
 
 ### Note: This Page is under heavy construction at the moment.
 I am also working on a wiki right now! 
-The api will get big changes so use it at your own risk!
 
 ## Importing the API using Maven
 
