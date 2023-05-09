@@ -8,6 +8,7 @@ import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.PipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.DataProviderLock;
 import de.verdox.vpipeline.api.pipeline.parts.LocalCache;
+import de.verdox.vpipeline.api.util.AnnotationResolver;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -86,7 +87,8 @@ public class LocalCacheImpl implements LocalCache {
             IPipelineData data = cache.get(dataClass).remove(objectUUID);
             deleteFromCache(data);
             data.onDelete();
-            NetworkLogger.debug("[LocalCache] Removed " + data + " [" + objectUUID + "]");
+            if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                NetworkLogger.debug("[LocalCache] Removed " + data + " [" + objectUUID + "]");
             return true;
         });
     }
@@ -150,7 +152,8 @@ public class LocalCacheImpl implements LocalCache {
             if (dataExist(dataClass, objectUUID))
                 return loadObject(dataClass, objectUUID);
 
-            NetworkLogger.debug("[LocalCache] Instantiated new data " + dataClass.getSimpleName() + " [" + objectUUID + "]");
+            if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                NetworkLogger.debug("[LocalCache] Instantiated new data " + dataClass.getSimpleName() + " [" + objectUUID + "]");
             return PipelineData.instantiateData(attachedPipeline.getAttachedPipeline(), dataClass, objectUUID);
         });
     }

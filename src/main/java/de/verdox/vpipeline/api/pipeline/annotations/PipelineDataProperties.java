@@ -26,4 +26,6 @@ public @interface PipelineDataProperties {
     long time() default 20L;
 
     TimeUnit timeUnit() default TimeUnit.MINUTES;
+
+    boolean debugMode() default false;
 }

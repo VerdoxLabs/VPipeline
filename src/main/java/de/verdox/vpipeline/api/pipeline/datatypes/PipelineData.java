@@ -64,13 +64,16 @@ public abstract class PipelineData implements IPipelineData {
 
     @Override
     public String deserialize(JsonElement jsonObject) {
+        if (AnnotationResolver.getDataProperties(getClass()).debugMode())
+            NetworkLogger.debug("Updating " + this);
         var data = attachedPipeline.getGson().fromJson(jsonObject, getClass());
-        NetworkLogger.info(data.serialize() + " | Json: " + jsonObject);
         return attachedPipeline.getGson().toJson(jsonObject);
     }
 
     @Override
     public String deserialize(String jsonString) {
+        if (AnnotationResolver.getDataProperties(getClass()).debugMode())
+            NetworkLogger.debug("Updating " + this);
         attachedPipeline.getGson().fromJson(jsonString, getClass());
         return attachedPipeline.getGson().toJson(jsonString);
     }

@@ -145,7 +145,7 @@ public class PipelineImpl implements Pipeline {
     }
 
     @Override
-    public <T extends IPipelineData> @Nullable CompletableFuture<PipelineLock<T>> load(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
+    public <T extends IPipelineData> @Nullable CompletableFuture<PipelineLock<T>> load(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid, @Nullable Consumer<@NotNull T> loadCallback) {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
         Objects.requireNonNull(uuid, "uuid can't be null");
         if (!getDataRegistry().isTypeRegistered(dataClass))
@@ -154,11 +154,25 @@ public class PipelineImpl implements Pipeline {
         var future = new CompletableFuture<PipelineLock<T>>();
         executePipelineTask(future, () -> {
             var pipelineLock = createPipelineLock(dataClass, uuid);
-            pipelineLock.runOnReadLock(() -> {
-                var loadedData = load(dataClass, uuid, false);
-                if (loadedData == null)
-                    future.cancel(true);
-            });
+            if (loadCallback == null) {
+                pipelineLock.runOnReadLock(() -> {
+                    var loadedData = load(dataClass, uuid, false);
+                    if (loadedData == null)
+                        future.cancel(true);
+                });
+            } else {
+                pipelineLock.runOnWriteLock(() -> {
+                    var loadedData = load(dataClass, uuid, false);
+                    if (loadedData == null)
+                        future.cancel(true);
+                    else {
+                        loadCallback.accept(loadedData);
+                        pipelineSynchronizer.doSync(loadedData, true, () -> {
+                        });
+                    }
+                });
+            }
+
             future.complete((PipelineLock<T>) pipelineLock);
             return null;
         });
@@ -166,7 +180,7 @@ public class PipelineImpl implements Pipeline {
     }
 
     @Override
-    public @NotNull <T extends IPipelineData> CompletableFuture<PipelineLock<T>> loadOrCreate(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
+    public @NotNull <T extends IPipelineData> CompletableFuture<PipelineLock<T>> loadOrCreate(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid, @Nullable Consumer<T> loadCallback) {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
         Objects.requireNonNull(uuid, "uuid can't be null");
         if (!getDataRegistry().isTypeRegistered(dataClass))
@@ -176,9 +190,17 @@ public class PipelineImpl implements Pipeline {
         executePipelineTask(future, () -> {
             try {
                 var pipelineLock = createPipelineLock(dataClass, uuid);
-                pipelineLock.runOnWriteLock(() -> load(dataClass, uuid, true));
+                pipelineLock.runOnWriteLock(() -> {
+                    var loadedData = load(dataClass, uuid, true);
+                    if (loadedData != null && loadCallback != null) {
+                        loadCallback.accept(loadedData);
+                        pipelineSynchronizer.doSync(loadedData, true, () -> {
+                        });
+                    }
+                });
                 future.complete((PipelineLock<T>) pipelineLock);
             } catch (Throwable e) {
+                e.printStackTrace();
                 future.completeExceptionally(e);
             }
             return null;
@@ -269,7 +291,8 @@ public class PipelineImpl implements Pipeline {
                     deleted &= getGlobalStorage().remove(dataClass, uuid);
 
                 future.complete(deleted);
-                NetworkLogger.debug("Deleted: " + dataClass + " with " + uuid);
+                if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                    NetworkLogger.debug("Deleted: " + dataClass + " with " + uuid);
             });
             return null;
         });
@@ -285,18 +308,25 @@ public class PipelineImpl implements Pipeline {
                 .getDataProperties(dataClass)
                 .dataContext()
                 .isCacheAllowed())
-            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, () -> NetworkLogger
-                    .debug("CACHE -> Local | " + dataClass + " [" + uuid + "]"));
+            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, () -> {
+                if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                    NetworkLogger
+                            .debug("CACHE -> Local | " + dataClass + " [" + uuid + "]");
+            });
         else if (globalStorage != null && globalStorage.dataExist(dataClass, uuid) && AnnotationResolver
                 .getDataProperties(dataClass)
                 .dataContext()
                 .isStorageAllowed())
-            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, () -> NetworkLogger
-                    .debug("GLOBAL -> Local | " + dataClass.getSimpleName() + " [" + uuid + "]"));
+            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, () -> {
+                if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                    NetworkLogger
+                            .debug("GLOBAL -> Local | " + dataClass.getSimpleName() + " [" + uuid + "]");
+            });
         else {
             if (!createIfNotExist)
                 return null;
-            NetworkLogger.debug("Creating new " + dataClass.getSimpleName() + " [" + uuid + "]");
+            if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                NetworkLogger.debug("Creating new " + dataClass.getSimpleName() + " [" + uuid + "]");
             return createNewData(dataClass, uuid);
         }
         return localCache.loadObject(dataClass, uuid);
@@ -358,8 +388,9 @@ public class PipelineImpl implements Pipeline {
     private <T extends IPipelineData> T createNewData(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         Objects.requireNonNull(dataClass, "Dataclass can't be null");
         Objects.requireNonNull(uuid, "UUID can't be null");
-        NetworkLogger
-                .debug("[Pipeline] Creating new data of type: " + dataClass.getSimpleName() + " [" + uuid + "]");
+        if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+            NetworkLogger
+                    .debug("[Pipeline] Creating new data of type: " + dataClass.getSimpleName() + " [" + uuid + "]");
         T pipelineData = localCache.instantiateData(dataClass, uuid);
         pipelineData.loadDependentData();
         pipelineData.onCreate();
@@ -417,6 +448,7 @@ public class PipelineImpl implements Pipeline {
     private void executePipelineTask(CompletableFuture<?> future, Callable<?> callable) {
         if (executorService.isShutdown() || executorService.isTerminated()) {
             var e = new IllegalStateException("ExecutorService was shutted down.");
+            e.printStackTrace();
             future.completeExceptionally(e);
             throw e;
         }
@@ -468,7 +500,12 @@ public class PipelineImpl implements Pipeline {
     @Override
     public <T extends IPipelineData> CompletableFuture<Boolean> saveAndRemoveFromLocalCache(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         var future = new CompletableFuture<Boolean>();
-        pipelineSynchronizer.doSync(dataClass, uuid, true, () -> future.complete(getLocalCache().remove(dataClass, uuid)));
+        executePipelineTask(future, () -> {
+            createPipelineLock(dataClass, uuid).runOnWriteLock(() -> {
+                pipelineSynchronizer.doSync(dataClass, uuid, true, () -> future.complete(getLocalCache().remove(dataClass, uuid)));
+            });
+            return null;
+        });
         return future;
     }
 

@@ -15,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 public interface Pipeline extends SystemPart {
     NetworkParticipant getNetworkParticipant();
@@ -50,14 +51,24 @@ public interface Pipeline extends SystemPart {
     void preloadAll();
 
     /**
+     * @param loadCallback This callback is executed immediately after the pipeline task was performed. The lock on the object that is needed to perform this task is released before completing the future object. If you want to perform a task within the lock that is needed to perform this task then the callback is what you want to use.
      * @return A Pipeline lock only if there is a data somewhere in the pipeline
      */
-    @Nullable <T extends IPipelineData> CompletableFuture<PipelineLock<T>> load(@NotNull Class<? extends T> type, @NotNull UUID uuid);
+    @Nullable <T extends IPipelineData> CompletableFuture<PipelineLock<T>> load(@NotNull Class<? extends T> type, @NotNull UUID uuid, @Nullable Consumer<T> loadCallback);
+
+    default @Nullable <T extends IPipelineData> CompletableFuture<PipelineLock<T>> load(@NotNull Class<? extends T> type, @NotNull UUID uuid) {
+        return load(type, uuid, null);
+    }
 
     /**
+     * @param loadCallback This callback is executed immediately after the pipeline task was performed. The lock on the object that is needed to perform this task is released before completing the future object. If you want to perform a task within the lock that is needed to perform this task then the callback is what you want to use.
      * @return A Pipeline lock only in any case
      */
-    @NotNull <T extends IPipelineData> CompletableFuture<PipelineLock<T>> loadOrCreate(@NotNull Class<? extends T> type, @NotNull UUID uuid);
+    @NotNull <T extends IPipelineData> CompletableFuture<PipelineLock<T>> loadOrCreate(@NotNull Class<? extends T> type, @NotNull UUID uuid, @Nullable Consumer<T> loadCallback);
+
+    default @NotNull <T extends IPipelineData> CompletableFuture<PipelineLock<T>> loadOrCreate(@NotNull Class<? extends T> type, @NotNull UUID uuid) {
+        return loadOrCreate(type, uuid, null);
+    }
 
     @NotNull <T extends IPipelineData> CompletableFuture<Set<DataReference<T>>> loadAllData(@NotNull Class<? extends T> type);
 

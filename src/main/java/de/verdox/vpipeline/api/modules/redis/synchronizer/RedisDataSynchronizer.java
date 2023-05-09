@@ -49,7 +49,8 @@ public class RedisDataSynchronizer implements Synchronizer {
             var uuid = dataBlock.dataUUID;
             var serializedData = "";
             if (dataBlock instanceof RemoveDataBlock) {
-                NetworkLogger.debug("Received network removal for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
+                if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                    NetworkLogger.debug("Received network removal for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
                 if (!pipeline.getLocalCache().remove(dataClass, dataBlock.dataUUID))
                     NetworkLogger
                             .getLogger()
@@ -63,23 +64,26 @@ public class RedisDataSynchronizer implements Synchronizer {
                 serializedData = creationDataBlock.dataToUpdate;
 
             if (remoteDataObject == null) {
-                NetworkLogger.debug("Received network creation for " + dataClass.getSimpleName() + "[" + dataBlock.dataUUID + "]");
+                if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                    NetworkLogger.debug("Received network creation for " + dataClass.getSimpleName() + "[" + dataBlock.dataUUID + "]");
                 this.pipeline
                         .getLocalCache()
                         .save(dataClass, uuid, JsonParser.parseString(serializedData));
             } else {
-                NetworkLogger.debug("Received network sync for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
+                if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                    NetworkLogger.debug("Received network sync for " + dataClass.getSimpleName() + " [" + remoteDataObject + " | " + dataBlock.dataUUID + "]");
                 var beforeSync = remoteDataObject.deserialize(serializedData);
                 remoteDataObject.onSync(beforeSync);
             }
         };
         dataTopic.addListener(DataBlock.class, messageListener);
-        NetworkLogger.info("RedisDataSynchronizer started for " + dataClass.getSimpleName());
+        if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+            NetworkLogger.info("RedisDataSynchronizer started for " + dataClass.getSimpleName());
     }
 
     @Override
     public void cleanUp() {
-        dataTopic.removeListener(messageListener);
+        /*        dataTopic.removeListener(messageListener);*/
     }
 
     @Override
@@ -97,8 +101,9 @@ public class RedisDataSynchronizer implements Synchronizer {
             var count = dataTopic.publish(new UpdateDataBlock(senderUUID, data.getObjectUUID(), attachedPipeline
                     .getGson()
                     .toJson(data.serialize())));
-            NetworkLogger
-                    .debug("Pushed network sync to " + count + " clients for " + data + " [" + data.getObjectUUID() + "]");
+            if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                NetworkLogger
+                        .debug("Pushed network sync to " + count + " clients for " + data + " [" + data.getObjectUUID() + "]");
 
         } catch (Throwable e) {
             e.printStackTrace();
@@ -127,8 +132,9 @@ public class RedisDataSynchronizer implements Synchronizer {
             dataTopic.publish(new CreationDataBlock(senderUUID, data.getObjectUUID(), attachedPipeline
                     .getGson()
                     .toJson(data.serialize())));
-            NetworkLogger
-                    .debug("Pushed network ´creation for " + data + " [" + data.getObjectUUID() + "]");
+            if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                NetworkLogger
+                        .debug("Pushed network ´creation for " + data + " [" + data.getObjectUUID() + "]");
             /*            data.markRemoval();*/
         } finally {
             if (callback != null)

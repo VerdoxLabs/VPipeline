@@ -4,6 +4,7 @@ import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.pipeline.core.PipelineLock;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
+import de.verdox.vpipeline.api.util.AnnotationResolver;
 import org.jetbrains.annotations.Nullable;
 import org.redisson.api.RLock;
 
@@ -23,6 +24,9 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
     private final Lock writeLock;
 
     public PipelineLockImpl(PipelineImpl pipeline, PipelineSynchronizerImpl pipelineSynchronizer, Class<? extends T> type, UUID objectUUID, Lock readLock, Lock writeLock) {
+        //TODO: Exclusive write rights for data that is only updated on one server client at a time.
+        // Damit kann ein Inventar erst freigegeben werden für write lock wenn der exclusive lock entfernt wurde. Ansonsten müssen die anderen clients halt drauf warten, dass sie ihn bekommen.
+        // Readen geht ganz normal. Es ist also nur ein Lock der verhindert, dass andere den write lock acquiren können
         this.pipeline = pipeline;
         this.pipelineSynchronizer = pipelineSynchronizer;
         this.type = type;
@@ -54,18 +58,20 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
     @Override
     public synchronized void runOnReadLock(Runnable runnable) {
         if (!pipeline.isReady())
-            NetworkLogger.debug("Cancelled runOnReadLock operation because pipeline was shutted down.");
+            NetworkLogger.warning("Cancelled runOnReadLock operation because pipeline was shutted down.");
         else {
             try {
                 lockRead();
-                NetworkLogger.debug("Acquired readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
+                if (AnnotationResolver.getDataProperties(type).debugMode())
+                    NetworkLogger.debug("Acquired readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID()+ " [" + System.currentTimeMillis() + "]");
                 runnable.run();
             } catch (Exception e) {
                 e.printStackTrace();
                 throw new RuntimeException(e);
             } finally {
                 readLock.unlock();
-                NetworkLogger.debug("Released readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
+                if (AnnotationResolver.getDataProperties(type).debugMode())
+                    NetworkLogger.debug("Released readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID()+ " [" + System.currentTimeMillis() + "]");
             }
         }
     }
@@ -74,12 +80,13 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
     @Nullable
     public synchronized <O> O getter(Function<? super T, ? extends O> getter) {
         if (!pipeline.isReady()) {
-            NetworkLogger.debug("Cancelled getter operation because pipeline was shutted down.");
+            NetworkLogger.warning("Cancelled getter operation because pipeline was shutted down.");
             return null;
         } else {
             try {
                 lockRead();
-                NetworkLogger.debug("Acquired readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
+                if (AnnotationResolver.getDataProperties(type).debugMode())
+                    NetworkLogger.debug("Acquired readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID()+ " [" + System.currentTimeMillis() + "]");
                 var localCacheData = pipeline.getLocalCache().loadObject(getObjectType(), getObjectUUID());
                 return getter.apply(localCacheData);
             } catch (Exception e) {
@@ -87,7 +94,8 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
                 throw new RuntimeException(e);
             } finally {
                 readLock().unlock();
-                NetworkLogger.debug("Released readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
+                if (AnnotationResolver.getDataProperties(type).debugMode())
+                    NetworkLogger.debug("Released readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID()+ " [" + System.currentTimeMillis() + "]");
             }
         }
     }
@@ -99,14 +107,16 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
         else {
             try {
                 lockWrite();
-                NetworkLogger.debug("Acquired writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
+                if (AnnotationResolver.getDataProperties(type).debugMode())
+                    NetworkLogger.debug("Acquired writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID()+ " [" + System.currentTimeMillis() + "]");
                 runnable.run();
             } catch (Exception e) {
                 e.printStackTrace();
                 throw new RuntimeException(e);
             } finally {
                 writeLock.unlock();
-                NetworkLogger.debug("Released writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
+                if (AnnotationResolver.getDataProperties(type).debugMode())
+                    NetworkLogger.debug("Released writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID()+ " [" + System.currentTimeMillis() + "]");
             }
         }
     }
@@ -118,7 +128,8 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
         } else {
             try {
                 lockRead();
-                NetworkLogger.debug("Acquired readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
+                if (AnnotationResolver.getDataProperties(type).debugMode())
+                    NetworkLogger.debug("Acquired readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID()+ " [" + System.currentTimeMillis() + "]");
                 var localCacheData = pipeline.getLocalCache().loadObject(getObjectType(), getObjectUUID());
                 if (localCacheData != null)
                     reader.accept(localCacheData);
@@ -127,7 +138,8 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
                 throw new RuntimeException(e);
             } finally {
                 readLock.unlock();
-                NetworkLogger.debug("Released readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
+                if (AnnotationResolver.getDataProperties(type).debugMode())
+                    NetworkLogger.debug("Released readLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID()+ " [" + System.currentTimeMillis() + "]");
             }
         }
         return this;
@@ -141,13 +153,13 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
         }
         try {
             lockWrite();
-            NetworkLogger.debug("Acquired writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
+            if (AnnotationResolver.getDataProperties(type).debugMode())
+                NetworkLogger.debug("Acquired writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID() + " [" + System.currentTimeMillis() + "]");
             var localCacheData = pipeline.getLocalCache().loadObject(getObjectType(), getObjectUUID());
             if (localCacheData != null) {
                 writer.accept(localCacheData);
                 if (pushToNetwork) {
-                    localCacheData.save(true);
-                    pipelineSynchronizer.doSync(localCacheData, pushToNetwork, () -> {
+                    pipelineSynchronizer.doSync(localCacheData, true, () -> {
                     });
                 }
             }
@@ -156,7 +168,8 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
             throw new RuntimeException(e);
         } finally {
             writeLock().unlock();
-            NetworkLogger.debug("Released writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
+            if (AnnotationResolver.getDataProperties(type).debugMode())
+                NetworkLogger.debug("Released writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID() + " [" + System.currentTimeMillis() + "]");
         }
         return this;
     }
@@ -170,8 +183,8 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
 
         try {
             lockWrite();
-            NetworkLogger.debug("Acquired writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
-            NetworkLogger.debug("Performing save operation");
+            if (AnnotationResolver.getDataProperties(type).debugMode())
+                NetworkLogger.debug("Acquired writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID()+ " [" + System.currentTimeMillis() + "]");
             var localCacheData = pipeline.getLocalCache().loadObject(getObjectType(), getObjectUUID());
             if (localCacheData != null)
                 localCacheData.save(saveToStorage).orTimeout(5, TimeUnit.SECONDS).join();
@@ -180,7 +193,8 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
             throw new RuntimeException(e);
         } finally {
             writeLock().unlock();
-            NetworkLogger.debug("Released writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID());
+            if (AnnotationResolver.getDataProperties(type).debugMode())
+                NetworkLogger.debug("Released writeLock on " + getObjectType().getSimpleName() + " with " + getObjectUUID()+ " [" + System.currentTimeMillis() + "]");
         }
 
         return this;
@@ -192,14 +206,14 @@ public class PipelineLockImpl<T extends IPipelineData> implements PipelineLock<T
     }
 
     private void lockRead() {
-        if(readLock instanceof RLock rLock)
+        if (readLock instanceof RLock rLock)
             rLock.lock(10, TimeUnit.SECONDS);
         else
             readLock.lock();
     }
 
     private void lockWrite() {
-        if(writeLock instanceof RLock rLock)
+        if (writeLock instanceof RLock rLock)
             rLock.lock(10, TimeUnit.SECONDS);
         else
             writeLock.lock();

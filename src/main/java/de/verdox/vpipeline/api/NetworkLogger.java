@@ -1,5 +1,8 @@
 package de.verdox.vpipeline.api;
 
+import de.verdox.vpipeline.api.pipeline.datatypes.PipelineData;
+
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
@@ -8,6 +11,9 @@ public interface NetworkLogger {
 
     LoggerStats loggerStats = new LoggerStats();
     DebugMode debugMode = new DebugMode(false);
+
+    DebugMode transmitterDebugMode = new DebugMode(false);
+    DebugMode messagingServiceDebugMode = new DebugMode(false);
 
     static Logger getLogger() {
         var callerName = Thread.currentThread().getStackTrace()[2].getClass().getSimpleName();
@@ -28,7 +34,7 @@ public interface NetworkLogger {
         var caller = Thread.currentThread().getStackTrace()[3];
         getLogger().info("[" + Thread
                 .currentThread()
-                .getName() + " | " + extractClassName(caller.getClassName()) + ":" + caller.getMethodName() + "[" + caller.getLineNumber() + "]" + "] " + message);
+                .getName() + " | " + extractClassName(caller.getClassName()) + ":" + caller.getMethodName() + "[" + caller.getLineNumber() + "]" + "]\n" + message);
     }
 
     static void debug(String message) {
@@ -38,14 +44,14 @@ public interface NetworkLogger {
 
         getLogger().info("[" + Thread
                 .currentThread()
-                .getName() + " | " + extractClassName(caller.getClassName()) + ":" + caller.getMethodName() + "[" + caller.getLineNumber() + "]" + "] " + message);
+                .getName() + " | " + extractClassName(caller.getClassName()) + ":" + caller.getMethodName() + "[" + caller.getLineNumber() + "]" + "]\n" + message);
     }
 
     static void warning(String message) {
         var caller = Thread.currentThread().getStackTrace()[3];
         getLogger().warning("[" + Thread
                 .currentThread()
-                .getName() + " | " + extractClassName(caller.getClassName()) + ":" + caller.getMethodName() + "[" + caller.getLineNumber() + "]" + "] " + message);
+                .getName() + " | " + extractClassName(caller.getClassName()) + ":" + caller.getMethodName() + "[" + caller.getLineNumber() + "]" + "]\n" + message);
     }
 
     private static String extractClassName(String longName) {

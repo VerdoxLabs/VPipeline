@@ -67,8 +67,9 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
             return false;
         }
         DataProvider destinationProvider = getProvider(destination);
-        NetworkLogger
-                .debug("Sync from " + source + " to " + destination + " for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
+        if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+            NetworkLogger
+                    .debug("Sync from " + source + " to " + destination + " for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
         destinationProvider.save(dataClass, objectUUID, data);
 
         CallbackUtil.runIfNotNull(callback);
@@ -78,9 +79,8 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
     void doSync(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, boolean syncWithStorage, Runnable callback) {
         doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, dataClass, objectUUID, () -> {
             if (syncWithStorage)
-                doSynchronize(DataSourceType.LOCAL, DataSourceType.GLOBAL_STORAGE, dataClass, objectUUID, () -> {
-                    syncLocalInstances(dataClass, objectUUID, () -> CallbackUtil.runIfNotNull(callback));
-                });
+                doSynchronize(DataSourceType.LOCAL, DataSourceType.GLOBAL_STORAGE, dataClass, objectUUID, () ->
+                        syncLocalInstances(dataClass, objectUUID, () -> CallbackUtil.runIfNotNull(callback)));
             else
                 syncLocalInstances(dataClass, objectUUID, () -> CallbackUtil.runIfNotNull(callback));
         });
@@ -93,8 +93,9 @@ public record PipelineSynchronizerImpl(PipelineImpl pipeline) implements Pipelin
     void syncLocalInstances(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback) {
         var localObject = pipeline.getLocalCache().loadObjectOrThrow(dataClass, objectUUID);
         var synchronizer = localObject.getSynchronizer();
-        NetworkLogger
-                .debug("Syncing local instances for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
+        if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+            NetworkLogger
+                    .debug("Syncing local instances for " + dataClass.getSimpleName() + " [" + objectUUID + "]");
         synchronizer.pushUpdate(localObject, callback);
     }
 

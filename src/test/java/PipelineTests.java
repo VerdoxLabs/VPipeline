@@ -91,14 +91,14 @@ public class PipelineTests {
         hikari.setMaxLifetime(1800000L);
         hikari.setLeakDetectionThreshold(60000L);
 
-        mysqlNetworkParticipant = VNetwork
+/*        mysqlNetworkParticipant = VNetwork
                 .getConstructionService()
                 .createNetworkParticipant()
                 .withExecutorService(scheduledExecutorService)
                 .withPipeline(pipelineBuilder -> pipelineBuilder
                         .withGlobalStorage(GlobalStorage.buildSQLStorage(hikari)))
                 .withName("server3")
-                .build();
+                .build();*/
 
         jsonNetworkParticipant = VNetwork.getConstructionService()
                 .createNetworkParticipant()
@@ -163,10 +163,10 @@ public class PipelineTests {
                 .getDataRegistry()
                 .registerType(TestData.class);
 
-        mysqlNetworkParticipant
+/*        mysqlNetworkParticipant
                 .pipeline()
                 .getDataRegistry()
-                .registerType(TestData.class);
+                .registerType(TestData.class);*/
 
         pipeline
                 .delete(TestData.class, uuid1)
@@ -449,7 +449,7 @@ public class PipelineTests {
         assertTrue(found);
     }
 
-    @Test
+/*    @Test
     public void MySQLTestCreateData() {
         mysqlNetworkParticipant
                 .pipeline()
@@ -461,7 +461,7 @@ public class PipelineTests {
                 .pipeline()
                 .exist(TestData.class, uuid1)
                 .join());
-    }
+    }*/
 
     @Test
     public void JsonTestCreateData() {

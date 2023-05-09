@@ -43,17 +43,19 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
             var data = element.getAsJsonObject().get("data");
             var type = messagingService.getMessageFactory().getInstructionType(instructionID);
             if (type == null) {
-                NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Received unknown data with id: " + instructionID);
+                if (NetworkLogger.transmitterDebugMode.isDebugMode())
+                    NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Received unknown data with id: " + instructionID);
                 return;
             }
 
             var deserializedInstruction = gson.fromJson(data, type.type());
             if (deserializedInstruction.getSenderUUID().equals(messagingService.getSessionUUID()))
                 return;
-            NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Received a message on global channel");
-            NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Deserialized message to " + type
-                    .type().getSimpleName());
-            //NetworkLogger.info("[" + messagingService.getSessionIdentifier() + "] received a message on " + channel);
+            if(NetworkLogger.transmitterDebugMode.isDebugMode()){
+                NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Received a message on global channel");
+                NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Deserialized message to " + type
+                        .type().getSimpleName());
+            }
             try {
                 messagingService.postMessageEvent(String.valueOf(channel), deserializedInstruction);
             } catch (Throwable e) {
@@ -75,6 +77,7 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
                 NetworkLogger.warning("[" + messagingService.getSessionIdentifier() + "] Skipping sending to itself");
                 continue;
             }
+            if(NetworkLogger.transmitterDebugMode.isDebugMode())
             NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Sending message to PrivateMessagingChannel_" + receiver);
             counter += publish(getPrivateMessagingChannel(receiver), message);
 
@@ -89,8 +92,10 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
         var amountSubscribers = globalMessagingChannel.countSubscribers();
         if (publishedTo != amountSubscribers)
             NetworkLogger.warning("[" + messagingService.getSessionIdentifier() + "] Broadcast message couldn't be sent to all subscribers [" + publishedTo + "/" + amountSubscribers + "] - " + message);
-        else
-            NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Message was broadcasted to " + publishedTo + "/" + amountSubscribers + " clients.");
+        else{
+            if(NetworkLogger.transmitterDebugMode.isDebugMode())
+                NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Message was broadcasted to " + publishedTo + "/" + amountSubscribers + " clients.");
+        }
         return publishedTo;
     }
 

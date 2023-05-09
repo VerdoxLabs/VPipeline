@@ -118,8 +118,9 @@ public class MessagingServiceImpl implements MessagingService {
                     .getClass()
                     .getSimpleName() + " is not registered yet");
 
-        NetworkLogger.debug("[" + getSessionIdentifier() + "] Sending instruction " + instruction.getClass()
-                                                                                                 .getSimpleName());
+        if (NetworkLogger.messagingServiceDebugMode.isDebugMode())
+            NetworkLogger.debug("[" + getSessionIdentifier() + "] Sending instruction " + instruction.getClass()
+                                                                                                     .getSimpleName());
 
         if (instruction.onSend(this, receiversAmount)) {
             abstractInstruction.setupInstruction(registeredID, getSessionUUID(), getSessionIdentifier());
@@ -136,11 +137,13 @@ public class MessagingServiceImpl implements MessagingService {
             var responseCollector = (ResponseCollectorImpl<R>) abstractInstruction.getResponseCollector();
 
             if (abstractInstruction.getResponseToSend() != null) {
-                NetworkLogger.debug("[" + getSessionIdentifier() + "] Instruction was executed locally.");
+                if (NetworkLogger.messagingServiceDebugMode.isDebugMode())
+                    NetworkLogger.debug("[" + getSessionIdentifier() + "] Instruction was executed locally.");
                 responseCollector.complete(getSessionUUID(), (R) abstractInstruction.getResponseToSend());
 
             } else {
-                NetworkLogger.debug("[" + getSessionIdentifier() + "] Instruction was cancelled before sending");
+                if (NetworkLogger.messagingServiceDebugMode.isDebugMode())
+                    NetworkLogger.debug("[" + getSessionIdentifier() + "] Instruction was cancelled before sending");
                 responseCollector.cancel();
             }
 
@@ -165,11 +168,14 @@ public class MessagingServiceImpl implements MessagingService {
     private <R, T extends AbstractInstruction<R>> void handleInstruction(@NotNull T instruction) {
         var response = instruction.onInstructionReceive(this);
         var instructionInfo = messageFactoryImpl.findInstructionInfo((Class<? extends AbstractInstruction<?>>) instruction.getClass());
-        NetworkLogger.debug("[" + getSessionIdentifier() + "] Received instruction of type: " + instruction.getClass()
-                                                                                                          .getSimpleName());
+        if (NetworkLogger.messagingServiceDebugMode.isDebugMode())
+            NetworkLogger.debug("[" + getSessionIdentifier() + "] Received instruction of type: " + instruction
+                    .getClass()
+                    .getSimpleName());
         if (!instructionInfo.awaitsResponse()) {
-            NetworkLogger.debug("[" + getSessionIdentifier() + "] " + instruction.getClass()
-                                                                                 .getSimpleName() + " does not await a response");
+            if (NetworkLogger.messagingServiceDebugMode.isDebugMode())
+                NetworkLogger.debug("[" + getSessionIdentifier() + "] " + instruction.getClass()
+                                                                                     .getSimpleName() + " does not await a response");
             return;
         }
 
@@ -178,8 +184,9 @@ public class MessagingServiceImpl implements MessagingService {
     }
 
     private <R, T extends AbstractInstruction<R>> void sendResponse(@NotNull T instruction, R response) {
-        NetworkLogger.debug("[" + getSessionIdentifier() + "] Sending response for " + instruction.getClass()
-                                                                                                 .getSimpleName() + " to " + instruction.getSenderIdentifier());
+        if (NetworkLogger.messagingServiceDebugMode.isDebugMode())
+            NetworkLogger.debug("[" + getSessionIdentifier() + "] Sending response for " + instruction.getClass()
+                                                                                                      .getSimpleName() + " to " + instruction.getSenderIdentifier());
         instruction.setResponseToSend(response);
 
         var originalSender = instruction.getSenderUUID();
@@ -190,8 +197,9 @@ public class MessagingServiceImpl implements MessagingService {
     }
 
     private <R, T extends AbstractInstruction<R>> void handleResponse(@NotNull T response) {
-        NetworkLogger.debug("[" + getSessionIdentifier() + "] Received response from" + response
-                .getSenderIdentifier());
+        if (NetworkLogger.messagingServiceDebugMode.isDebugMode())
+            NetworkLogger.debug("[" + getSessionIdentifier() + "] Received response from" + response
+                    .getSenderIdentifier());
         if (!pendingInstructions.containsKey(response.getUuid()))
             return;
         T instructionLeft = (T) pendingInstructions.get(response.getUuid());
