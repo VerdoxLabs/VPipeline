@@ -11,11 +11,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 04.07.2022 00:13
- */
 public interface NetworkParticipant {
 
     /**

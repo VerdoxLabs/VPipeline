@@ -1,11 +1,4 @@
 package de.verdox.vpipeline.impl.util;
-
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 12:05
- */
-
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;

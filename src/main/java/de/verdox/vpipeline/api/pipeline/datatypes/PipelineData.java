@@ -16,12 +16,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 14:36
- */
-
 @PipelineDataProperties
 public abstract class PipelineData implements IPipelineData {
 

@@ -6,11 +6,6 @@ import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 import de.verdox.vpipeline.impl.util.RedisConnection;
 import org.jetbrains.annotations.NotNull;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 11:28
- */
 public interface SynchronizingService extends SystemPart {
     default Synchronizer getOrCreate(@NotNull Pipeline pipeline, @NotNull IPipelineData data) {
         return getOrCreate(pipeline, data.getClass());

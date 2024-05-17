@@ -11,11 +11,6 @@ import org.jetbrains.annotations.NotNull;
 import java.nio.file.Path;
 import java.util.Objects;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 11:14
- */
 public interface GlobalStorage extends DataProvider {
     default String getSuffix(@NotNull Class<? extends IPipelineData> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");

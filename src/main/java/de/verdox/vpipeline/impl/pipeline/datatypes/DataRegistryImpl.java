@@ -11,11 +11,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 13:18
- */
 public class DataRegistryImpl implements DataRegistry {
     private final Map<String, Set<Class<? extends IPipelineData>>> cache = new ConcurrentHashMap<>();
     private final Map<String, Class<? extends IPipelineData>> typesByDataStorageId = new ConcurrentHashMap<>();

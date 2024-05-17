@@ -20,11 +20,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 17:08
- */
 public abstract class SQLStorage implements GlobalStorage, RemoteStorage {
 
     protected static final String TABLE_COLUMN_KEY = "UUID";

@@ -5,11 +5,6 @@ import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import org.jetbrains.annotations.NotNull;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 13:27
- */
 public class AnnotationResolver {
     /**
      * Searches for DataStorageIdentifier and returns the identifier specified in the Annotation

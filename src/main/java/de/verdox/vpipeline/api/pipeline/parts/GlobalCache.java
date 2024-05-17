@@ -7,11 +7,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 11:13
- */
 public interface GlobalCache extends DataProvider {
     static GlobalCache createRedisCache(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
         return new RedisCache(clusterMode, addressArray, redisPassword);

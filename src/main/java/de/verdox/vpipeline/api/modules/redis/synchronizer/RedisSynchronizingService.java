@@ -14,11 +14,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 16:11
- */
 public class RedisSynchronizingService implements SynchronizingService {
 
     private final RedisConnection redisConnection;

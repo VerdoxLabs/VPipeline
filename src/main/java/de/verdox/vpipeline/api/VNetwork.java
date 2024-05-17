@@ -7,11 +7,6 @@ import org.reflections.Reflections;
 import java.lang.reflect.InvocationTargetException;
 import java.util.logging.Level;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 19:04
- */
 public final class VNetwork {
 
     private static ConstructionService pipelineService;

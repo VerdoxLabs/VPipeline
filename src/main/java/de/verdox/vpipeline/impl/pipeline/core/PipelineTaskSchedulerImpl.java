@@ -10,11 +10,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.*;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 11:37
- */
 public class PipelineTaskSchedulerImpl implements PipelineTaskScheduler {
 
     private final PipelineImpl pipeline;

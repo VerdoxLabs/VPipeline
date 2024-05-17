@@ -15,11 +15,6 @@ import org.redisson.codec.SerializationCodec;
 import java.util.Objects;
 import java.util.UUID;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 19.06.2022 12:44
- */
 public class RedisTransmitter extends RedisConnection implements Transmitter {
 
     private final RTopic globalMessagingChannel;

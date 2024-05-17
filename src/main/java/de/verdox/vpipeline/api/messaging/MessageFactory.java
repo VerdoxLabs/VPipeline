@@ -5,11 +5,6 @@ import de.verdox.vpipeline.api.messaging.instruction.Instruction;
 
 import java.util.function.Supplier;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 19.06.2022 12:34
- */
 public interface MessageFactory {
     MessagingService getMessagingService();
 

@@ -6,11 +6,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 11:04
- */
 public interface PipelineSynchronizer extends SystemPart {
 
     void synchronize(@NotNull DataSourceType source, @NotNull DataSourceType destination, @NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, Runnable callback);

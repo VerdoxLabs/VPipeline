@@ -11,11 +11,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 11:16
- */
 public interface DataProvider extends SystemPart {
     JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID);
 

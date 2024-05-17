@@ -10,11 +10,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.02.2022 22:57
- */
 public interface IPipelineData {
 
     UUID getObjectUUID();

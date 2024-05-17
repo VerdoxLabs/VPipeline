@@ -22,11 +22,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 17:16
- */
 public class MongoDBStorage implements GlobalStorage, RemoteStorage {
     private MongoClient mongoClient;
     private MongoDatabase mongoDatabase;

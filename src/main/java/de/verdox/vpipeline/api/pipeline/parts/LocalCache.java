@@ -8,11 +8,6 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 11:13
- */
 public interface LocalCache extends DataProvider {
     //TODO: Update last use on LoadObject
     @Nullable

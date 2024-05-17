@@ -10,11 +10,6 @@ import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 14:35
- */
 public interface PipelineBuilder {
     PipelineBuilder withGlobalCache(GlobalCache globalCache);
 

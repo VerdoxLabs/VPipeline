@@ -17,11 +17,6 @@ import java.sql.SQLException;
 import java.util.Objects;
 import java.util.function.Function;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 17:09
- */
 public class MySQLStorage extends SQLStorage {
 
     private final HikariDataSource hikariDataSource;

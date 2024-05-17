@@ -25,11 +25,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 17:10
- */
 public class JsonFileStorage implements GlobalStorage {
     private final Path path;
     private final AttachedPipeline attachedPipeline;

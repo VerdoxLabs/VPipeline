@@ -8,11 +8,6 @@ import de.verdox.vpipeline.api.modules.redis.messaging.RedisTransmitter;
 import de.verdox.vpipeline.impl.messaging.MessagingServiceImpl;
 import org.jetbrains.annotations.NotNull;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 23.06.2022 11:46
- */
 public class MessagingServiceBuilderImpl implements MessagingServiceBuilder {
 
     private Transmitter transmitter;

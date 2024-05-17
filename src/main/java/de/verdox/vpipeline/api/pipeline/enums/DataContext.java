@@ -1,10 +1,5 @@
 package de.verdox.vpipeline.api.pipeline.enums;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 13:30
- */
 public enum DataContext {
     GLOBAL,
     CACHE_ONLY,

@@ -1,10 +1,5 @@
 package de.verdox.vpipeline.api.pipeline.core;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 11:08
- */
 public enum LoadingStrategy {
     // Data will be loaded from Local Cache
     LOAD_LOCAL,

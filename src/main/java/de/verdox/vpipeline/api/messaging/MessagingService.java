@@ -11,11 +11,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 23:10
- */
 public interface MessagingService extends SystemPart {
 
     NetworkParticipant getNetworkParticipant();

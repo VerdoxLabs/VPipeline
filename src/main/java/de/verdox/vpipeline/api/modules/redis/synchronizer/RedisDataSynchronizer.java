@@ -19,11 +19,6 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 16:11
- */
 public class RedisDataSynchronizer implements Synchronizer {
     private final RTopic dataTopic;
     private final MessageListener<DataBlock> messageListener;

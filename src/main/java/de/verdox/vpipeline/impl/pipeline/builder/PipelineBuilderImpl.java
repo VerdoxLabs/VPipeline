@@ -13,11 +13,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 18:23
- */
 public class PipelineBuilderImpl implements PipelineBuilder {
     private GlobalCache globalCache;
     private GlobalStorage globalStorage;

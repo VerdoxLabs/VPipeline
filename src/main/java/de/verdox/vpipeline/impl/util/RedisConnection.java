@@ -16,11 +16,6 @@ import org.redisson.config.SingleServerConfig;
 
 import java.util.Objects;
 
-/**
- * @version 1.0
- * @Author: Lukas Jonsson (Verdox)
- * @date 18.06.2022 15:42
- */
 public class RedisConnection implements SystemPart {
     protected final RedissonClient redissonClient;
 
