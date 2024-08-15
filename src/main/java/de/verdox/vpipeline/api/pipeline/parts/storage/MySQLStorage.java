@@ -1,12 +1,9 @@
-package de.verdox.vpipeline.api.modules.sql.mysql;
+package de.verdox.vpipeline.api.pipeline.parts.storage;
 
 import com.google.gson.GsonBuilder;
 import com.zaxxer.hikari.HikariDataSource;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
-import de.verdox.vpipeline.api.modules.sql.SQLStorage;
-import de.verdox.vpipeline.api.pipeline.parts.DataProviderLock;
-import de.verdox.vpipeline.impl.pipeline.parts.DataProviderLockImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

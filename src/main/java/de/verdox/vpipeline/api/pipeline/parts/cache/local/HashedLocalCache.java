@@ -1,4 +1,4 @@
-package de.verdox.vpipeline.impl.pipeline.parts;
+package de.verdox.vpipeline.api.pipeline.parts.cache.local;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -6,7 +6,6 @@ import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.PipelineData;
-import de.verdox.vpipeline.api.pipeline.parts.DataProviderLock;
 import de.verdox.vpipeline.api.pipeline.parts.LocalCache;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import org.jetbrains.annotations.NotNull;
@@ -14,74 +13,84 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
-public class LocalCacheImpl implements LocalCache {
-    private final Map<Class<? extends IPipelineData>, Map<UUID, IPipelineData>> cache = new ConcurrentHashMap<>();
+public class HashedLocalCache implements LocalCache {
+    private final Map<Class<? extends IPipelineData>, Map<UUID, IPipelineData>> cache = new HashMap<>();
+    private final Map<IPipelineData, DataAccess<IPipelineData>> cachedAccess = new HashMap<>();
     private final AttachedPipeline attachedPipeline;
-    private final DataProviderLock dataProviderLock = new DataProviderLockImpl();
+    private final ReentrantReadWriteLock reentrantReadWriteLock = new ReentrantReadWriteLock();
 
-    public LocalCacheImpl() {
+    public HashedLocalCache() {
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
         NetworkLogger.info("Local Cache initialized");
     }
 
-
     @Override
     public JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
-        return dataProviderLock.executeOnWriteLock(() -> {
+        reentrantReadWriteLock.readLock().lock();
+        try {
             IPipelineData data = loadObject(dataClass, objectUUID);
             if (data == null)
                 return null;
             return data.serialize();
-        });
+        } finally {
+            reentrantReadWriteLock.readLock().unlock();
+        }
     }
 
     @Override
     public <S extends IPipelineData> void saveObject(@NotNull S object) {
         Objects.requireNonNull(object, "object can't be null!");
-        dataProviderLock.executeOnWriteLock(() -> {
-/*        if (dataExist(object.getClass(), object.getObjectUUID())) {
-            return;
-        }*/
-            cache.computeIfAbsent(object.getClass(), aClass -> new ConcurrentHashMap<>())
-                 .put(object.getObjectUUID(), object);
+        reentrantReadWriteLock.writeLock().lock();
+        try {
+            if (dataExist(object.getClass(), object.getObjectUUID()))
+                remove(object.getClass(), object.getObjectUUID());
+            cache.computeIfAbsent(object.getClass(), aClass -> new ConcurrentHashMap<>()).put(object.getObjectUUID(), object);
             object.updateLastUsage();
-            return null;
-        });
+        } finally {
+            reentrantReadWriteLock.writeLock().unlock();
+        }
     }
 
     @Override
     public boolean dataExist(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
-        return dataProviderLock.executeOnReadLock(() -> {
+        reentrantReadWriteLock.readLock().lock();
+        try {
             if (!cache.containsKey(dataClass))
                 return false;
             var foundData = cache.get(dataClass).getOrDefault(objectUUID, null);
             return foundData != null;
-        });
+        } finally {
+            reentrantReadWriteLock.readLock().unlock();
+        }
     }
 
     @Override
     public void save(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID, @NotNull JsonElement dataToSave) {
-        dataProviderLock.executeOnWriteLock(() -> {
+        reentrantReadWriteLock.writeLock().lock();
+        try {
             IPipelineData foundData = loadObject(dataClass, objectUUID);
             if (foundData == null)
                 foundData = instantiateData(dataClass, objectUUID);
             foundData.updateLastUsage();
             foundData.deserialize(dataToSave);
             saveObject(foundData);
-            return null;
-        });
+        } finally {
+            reentrantReadWriteLock.writeLock().unlock();
+        }
     }
 
     @Override
     public boolean remove(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
-
-        return dataProviderLock.executeOnWriteLock(() -> {
+        reentrantReadWriteLock.writeLock().lock();
+        try {
             if (!dataExist(dataClass, objectUUID))
                 return false;
             IPipelineData data = cache.get(dataClass).remove(objectUUID);
@@ -90,23 +99,76 @@ public class LocalCacheImpl implements LocalCache {
             if (AnnotationResolver.getDataProperties(dataClass).debugMode())
                 NetworkLogger.debug("[LocalCache] Removed " + data + " [" + objectUUID + "]");
             return true;
-        });
-    }
-
-    private void deleteFromCache(IPipelineData pipelineData) {
-        cache.get(pipelineData.getClass()).remove(pipelineData.getObjectUUID());
-        if (cache.get(pipelineData.getClass()).size() == 0)
-            cache.remove(pipelineData.getClass());
+        } finally {
+            reentrantReadWriteLock.writeLock().unlock();
+        }
     }
 
     @Override
     public Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
-        return dataProviderLock.executeOnReadLock(() -> {
+        reentrantReadWriteLock.readLock().lock();
+        try {
             if (!cache.containsKey(dataClass))
                 return new HashSet<>();
             return cache.get(dataClass).keySet();
-        });
+        } finally {
+            reentrantReadWriteLock.readLock().unlock();
+        }
+    }
+
+    @Nullable
+    @Override
+    public <S extends IPipelineData> S loadObject(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
+        Objects.requireNonNull(dataClass, "dataClass can't be null!");
+        Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
+        reentrantReadWriteLock.readLock().lock();
+        try {
+            if (!dataExist(dataClass, objectUUID))
+                return null;
+            IPipelineData data = cache.get(dataClass).get(objectUUID);
+            data.updateLastUsage();
+            return dataClass.cast(data);
+        } finally {
+            reentrantReadWriteLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public <S extends IPipelineData> Set<S> loadAllData(@NotNull Class<? extends S> dataClass) {
+        Objects.requireNonNull(dataClass, "dataClass can't be null!");
+        reentrantReadWriteLock.readLock().lock();
+        try {
+            return getSavedUUIDs(dataClass)
+                    .stream()
+                    .map(uuid -> loadObject(dataClass, uuid))
+                    .collect(Collectors.toSet());
+        } finally {
+            reentrantReadWriteLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public <S extends IPipelineData> S instantiateData(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
+        Objects.requireNonNull(dataClass, "dataClass can't be null!");
+        Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
+        if (dataExist(dataClass, objectUUID))
+            return loadObject(dataClass, objectUUID);
+
+        if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+            NetworkLogger.debug("[LocalCache] Instantiated new data " + dataClass.getSimpleName() + " [" + objectUUID + "]");
+        return PipelineData.instantiateData(attachedPipeline.getAttachedPipeline(), dataClass, objectUUID);
+    }
+
+    @Override
+    public <S extends IPipelineData> DataAccess<S> createAccess(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
+        if (!dataExist(dataClass, objectUUID))
+            throw new IllegalArgumentException("No object in local cache with dataClass " + dataClass + " and uuid " + objectUUID);
+        Lock objectReadLock = getAttachedPipeline().getAttachedPipeline().getNetworkDataLockingService().getReadLock(dataClass, objectUUID);
+        Lock objectWriteLock = getAttachedPipeline().getAttachedPipeline().getNetworkDataLockingService().getWriteLock(dataClass, objectUUID);
+
+        S dataObject = loadObject(dataClass, objectUUID);
+        return (DataAccess<S>) cachedAccess.computeIfAbsent(dataObject, iPipelineData -> new DataAccess<>(this, dataClass, objectUUID, objectReadLock, objectWriteLock));
     }
 
     @Override
@@ -115,51 +177,14 @@ public class LocalCacheImpl implements LocalCache {
     }
 
     @Override
-    public DataProviderLock getDataProviderLock() {
-        return dataProviderLock;
-    }
-
-    @Nullable
-    @Override
-    public <S extends IPipelineData> S loadObject(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
-        Objects.requireNonNull(dataClass, "dataClass can't be null!");
-        Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
-
-        return dataProviderLock.executeOnReadLock(() -> {
-            if (!dataExist(dataClass, objectUUID))
-                return null;
-            IPipelineData data = cache.get(dataClass).get(objectUUID);
-            data.updateLastUsage();
-            return dataClass.cast(data);
-        });
-    }
-
-    @Override
-    public <S extends IPipelineData> Set<S> loadAllData(@NotNull Class<? extends S> dataClass) {
-        Objects.requireNonNull(dataClass, "dataClass can't be null!");
-        return dataProviderLock.executeOnReadLock(() -> getSavedUUIDs(dataClass)
-                .stream()
-                .map(uuid -> loadObject(dataClass, uuid))
-                .collect(Collectors.toSet()));
-    }
-
-    @Override
-    public <S extends IPipelineData> S instantiateData(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
-        Objects.requireNonNull(dataClass, "dataClass can't be null!");
-        Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
-
-        return dataProviderLock.executeOnWriteLock(() -> {
-            if (dataExist(dataClass, objectUUID))
-                return loadObject(dataClass, objectUUID);
-
-            if (AnnotationResolver.getDataProperties(dataClass).debugMode())
-                NetworkLogger.debug("[LocalCache] Instantiated new data " + dataClass.getSimpleName() + " [" + objectUUID + "]");
-            return PipelineData.instantiateData(attachedPipeline.getAttachedPipeline(), dataClass, objectUUID);
-        });
-    }
-
-    @Override
     public void shutdown() {
 
+    }
+
+    private void deleteFromCache(IPipelineData pipelineData) {
+        cache.get(pipelineData.getClass()).remove(pipelineData.getObjectUUID());
+        if (cache.get(pipelineData.getClass()).size() == 0)
+            cache.remove(pipelineData.getClass());
+        cachedAccess.remove(pipelineData);
     }
 }

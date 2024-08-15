@@ -1,6 +1,5 @@
-package de.verdox.vpipeline.api.modules.mongo;
+package de.verdox.vpipeline.api.pipeline.parts.storage;
 
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
@@ -10,14 +9,9 @@ import com.mongodb.client.MongoDatabase;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
-import de.verdox.vpipeline.api.pipeline.parts.DataProviderLock;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vpipeline.api.pipeline.parts.RemoteStorage;
-import de.verdox.vpipeline.impl.pipeline.parts.DataProviderLockImpl;
 import org.bson.Document;
-import org.bson.UuidRepresentation;
-import org.bson.types.ObjectId;
-import org.checkerframework.checker.units.qual.A;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -33,8 +27,6 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
     private final AttachedPipeline attachedPipeline;
     private final String url;
     //private final CodecRegistry codecRegistry;
-
-    private final DataProviderLock dataProviderLock = new DataProviderLockImpl();
 
     public MongoDBStorage(String host, String database, int port, String user, String password, String url) {
         this.url = url;
@@ -62,17 +54,15 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
-        return dataProviderLock.executeOnReadLock(() -> {
-            Document filter = new Document("objectUUID", objectUUID.toString());
+        Document filter = new Document("objectUUID", objectUUID.toString());
 
-            Document mongoDBData = getMongoStorage(dataClass, getSuffix(dataClass)).find(filter).first();
+        Document mongoDBData = getMongoStorage(dataClass, getSuffix(dataClass)).find(filter).first();
 
-            if (mongoDBData == null)
-                mongoDBData = filter;
+        if (mongoDBData == null)
+            mongoDBData = filter;
 
-            mongoDBData.remove("_id");
-            return JsonParser.parseString(attachedPipeline.getGson().toJson(mongoDBData));
-        });
+        mongoDBData.remove("_id");
+        return JsonParser.parseString(attachedPipeline.getGson().toJson(mongoDBData));
     }
 
     @Override
@@ -80,12 +70,10 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
-        return dataProviderLock.executeOnReadLock(() -> {
-            Document document = getMongoStorage(dataClass, getSuffix(dataClass))
-                    .find(new Document("objectUUID", objectUUID.toString()))
-                    .first();
-            return document != null;
-        });
+        Document document = getMongoStorage(dataClass, getSuffix(dataClass))
+                .find(new Document("objectUUID", objectUUID.toString()))
+                .first();
+        return document != null;
     }
 
     @Override
@@ -94,22 +82,19 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
         Objects.requireNonNull(dataToSave, "dataToSave can't be null!");
 
-        dataProviderLock.executeOnWriteLock(() -> {
-            Document filter = new Document("objectUUID", objectUUID.toString());
+        Document filter = new Document("objectUUID", objectUUID.toString());
 
-            MongoCollection<Document> collection = getMongoStorage(dataClass, getSuffix(dataClass));
+        MongoCollection<Document> collection = getMongoStorage(dataClass, getSuffix(dataClass));
 
-            if (collection.find(filter).first() == null) {
-                Document newData = new Document("objectUUID", objectUUID.toString());
-                newData.putAll(Document.parse(attachedPipeline.getGson().toJson(dataToSave)));
-                collection.insertOne(newData);
-            } else {
-                Document newData = Document.parse(attachedPipeline.getGson().toJson(dataToSave));
-                Document updateFunc = new Document("$set", newData);
-                collection.updateOne(filter, updateFunc);
-            }
-            return null;
-        });
+        if (collection.find(filter).first() == null) {
+            Document newData = new Document("objectUUID", objectUUID.toString());
+            newData.putAll(Document.parse(attachedPipeline.getGson().toJson(dataToSave)));
+            collection.insertOne(newData);
+        } else {
+            Document newData = Document.parse(attachedPipeline.getGson().toJson(dataToSave));
+            Document updateFunc = new Document("$set", newData);
+            collection.updateOne(filter, updateFunc);
+        }
     }
 
     @Override
@@ -117,44 +102,35 @@ public class MongoDBStorage implements GlobalStorage, RemoteStorage {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
-        return dataProviderLock.executeOnWriteLock(() -> {
-            Document filter = new Document("objectUUID", objectUUID.toString());
+        Document filter = new Document("objectUUID", objectUUID.toString());
 
-            if (!dataExist(dataClass, objectUUID))
-                return true;
+        if (!dataExist(dataClass, objectUUID))
+            return true;
 
-            MongoCollection<Document> collection = getMongoStorage(dataClass, getSuffix(dataClass));
+        MongoCollection<Document> collection = getMongoStorage(dataClass, getSuffix(dataClass));
 
-            var result = collection.deleteOne(filter).getDeletedCount() >= 1;
-            if (!result)
-                NetworkLogger.getLogger().warning("Could not delete data from MongoDB");
-            return result;
-        });
+        var result = collection.deleteOne(filter).getDeletedCount() >= 1;
+        if (!result)
+            NetworkLogger.getLogger().warning("Could not delete data from MongoDB");
+        return result;
     }
 
     @Override
     public Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
-        return dataProviderLock.executeOnReadLock(() -> {
-            MongoCollection<Document> collection = getMongoStorage(dataClass, getSuffix(dataClass));
-            Set<UUID> uuids = new HashSet<>();
-            for (Document document : collection.find()) {
-                if (!document.containsKey("objectUUID"))
-                    continue;
-                uuids.add(UUID.fromString((String) document.get("objectUUID")));
-            }
-            return uuids;
-        });
+        MongoCollection<Document> collection = getMongoStorage(dataClass, getSuffix(dataClass));
+        Set<UUID> uuids = new HashSet<>();
+        for (Document document : collection.find()) {
+            if (!document.containsKey("objectUUID"))
+                continue;
+            uuids.add(UUID.fromString((String) document.get("objectUUID")));
+        }
+        return uuids;
     }
 
     @Override
     public AttachedPipeline getAttachedPipeline() {
         return attachedPipeline;
-    }
-
-    @Override
-    public DataProviderLock getDataProviderLock() {
-        return dataProviderLock;
     }
 
     private MongoCollection<Document> getMongoStorage(@NotNull Class<? extends IPipelineData> dataClass, @NotNull String suffix) {

@@ -1,15 +1,12 @@
 package de.verdox.vpipeline.api;
 
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.network.RemoteParticipant;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
-import de.verdox.vpipeline.api.pipeline.core.PipelineLock;
-import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
-import de.verdox.vpipeline.impl.network.RemoteParticipantImpl;
 
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 public interface NetworkParticipant {
 
@@ -23,11 +20,11 @@ public interface NetworkParticipant {
      */
     MessagingService messagingService();
 
-    CompletableFuture<Set<DataReference<RemoteParticipant>>> getOnlineNetworkClients();
+    Set<DataAccess<? extends RemoteParticipant>> getOnlineNetworkClients();
 
-    DataReference<RemoteParticipant> getOnlineNetworkClient(String identifier);
+    DataAccess<RemoteParticipant> getOnlineNetworkClient(String identifier);
 
-    DataReference<RemoteParticipant> getAsNetworkClient();
+    DataAccess<RemoteParticipant> getAsNetworkClient();
 
     UUID getUUID();
 

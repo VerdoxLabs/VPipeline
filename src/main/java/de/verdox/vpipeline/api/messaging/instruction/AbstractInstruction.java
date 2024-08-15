@@ -1,7 +1,5 @@
 package de.verdox.vpipeline.api.messaging.instruction;
 
-import de.verdox.vpipeline.impl.messaging.ResponseCollectorImpl;
-
 import java.util.UUID;
 
 public abstract class AbstractInstruction<R> implements Instruction<R> {

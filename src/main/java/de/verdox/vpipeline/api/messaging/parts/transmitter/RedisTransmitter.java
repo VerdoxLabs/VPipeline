@@ -1,4 +1,4 @@
-package de.verdox.vpipeline.api.modules.redis.messaging;
+package de.verdox.vpipeline.api.messaging.parts.transmitter;
 
 import com.google.gson.*;
 import de.verdox.vpipeline.api.NetworkLogger;
@@ -6,28 +6,27 @@ import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.messaging.Transmitter;
 import de.verdox.vpipeline.api.messaging.instruction.Instruction;
 import de.verdox.vpipeline.impl.util.RedisConnection;
-import org.jetbrains.annotations.NotNull;
 import org.redisson.api.RTopic;
 import org.redisson.api.listener.MessageListener;
 import org.redisson.client.codec.StringCodec;
-import org.redisson.codec.SerializationCodec;
 
 import java.util.Objects;
 import java.util.UUID;
 
-public class RedisTransmitter extends RedisConnection implements Transmitter {
+public class RedisTransmitter implements Transmitter {
 
     private final RTopic globalMessagingChannel;
     private final MessageListener<String> listener;
+    private final RedisConnection redisConnection;
     private MessagingService messagingService;
     private RTopic privateMessagingChannel;
 
     private final Gson gson = new GsonBuilder().serializeNulls().create();
 
-    public RedisTransmitter(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
-        super(clusterMode, addressArray, redisPassword);
+    public RedisTransmitter(RedisConnection redisConnection) {
+        this.redisConnection = redisConnection;
 
-        globalMessagingChannel = redissonClient.getTopic("GlobalMessagingChannel", new StringCodec());
+        globalMessagingChannel = redisConnection.getRedissonClient().getTopic("GlobalMessagingChannel", new StringCodec());
         this.listener = (channel, msgString) -> {
             //TODO: Den richtigen Typ hernehmen nach ID zum deserializen
             //TODO: Die Id mitsenden?
@@ -36,7 +35,7 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
 
             var instructionID = element.getAsJsonObject().get("id").getAsJsonPrimitive().getAsInt();
             var data = element.getAsJsonObject().get("data");
-            var type = messagingService.getMessageFactory().getInstructionType(instructionID);
+            var type = messagingService.getMessageFactory().getCachedInstructionData(instructionID);
             if (type == null) {
                 if (NetworkLogger.transmitterDebugMode.isDebugMode())
                     NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Received unknown data with id: " + instructionID);
@@ -46,7 +45,7 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
             var deserializedInstruction = gson.fromJson(data, type.type());
             if (deserializedInstruction.getSenderUUID().equals(messagingService.getSessionUUID()))
                 return;
-            if(NetworkLogger.transmitterDebugMode.isDebugMode()){
+            if (NetworkLogger.transmitterDebugMode.isDebugMode()) {
                 NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Received a message on global channel");
                 NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Deserialized message to " + type
                         .type().getSimpleName());
@@ -72,10 +71,9 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
                 NetworkLogger.warning("[" + messagingService.getSessionIdentifier() + "] Skipping sending to itself");
                 continue;
             }
-            if(NetworkLogger.transmitterDebugMode.isDebugMode())
-            NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Sending message to PrivateMessagingChannel_" + receiver);
+            if (NetworkLogger.transmitterDebugMode.isDebugMode())
+                NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Sending message to PrivateMessagingChannel_" + receiver);
             counter += publish(getPrivateMessagingChannel(receiver), message);
-
         }
         return counter;
     }
@@ -87,8 +85,8 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
         var amountSubscribers = globalMessagingChannel.countSubscribers();
         if (publishedTo != amountSubscribers)
             NetworkLogger.warning("[" + messagingService.getSessionIdentifier() + "] Broadcast message couldn't be sent to all subscribers [" + publishedTo + "/" + amountSubscribers + "] - " + message);
-        else{
-            if(NetworkLogger.transmitterDebugMode.isDebugMode())
+        else {
+            if (NetworkLogger.transmitterDebugMode.isDebugMode())
                 NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Message was broadcasted to " + publishedTo + "/" + amountSubscribers + " clients.");
         }
         return publishedTo;
@@ -113,13 +111,13 @@ public class RedisTransmitter extends RedisConnection implements Transmitter {
 
     @Override
     public void shutdown() {
-        redissonClient.shutdown();
+        redisConnection.getRedissonClient().shutdown();
         globalMessagingChannel.removeListener(listener);
         privateMessagingChannel.removeListener(listener);
     }
 
     private RTopic getPrivateMessagingChannel(UUID uuid) {
-        return redissonClient.getTopic("PrivateMessagingChannel_" + uuid, new StringCodec());
+        return redisConnection.getRedissonClient().getTopic("PrivateMessagingChannel_" + uuid, new StringCodec());
     }
 
     private long publish(RTopic rTopic, Instruction<?> instruction) {

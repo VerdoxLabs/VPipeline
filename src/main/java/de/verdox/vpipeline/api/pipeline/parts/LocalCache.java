@@ -1,5 +1,6 @@
 package de.verdox.vpipeline.api.pipeline.parts;
 
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import org.jetbrains.annotations.NotNull;
 
@@ -9,7 +10,6 @@ import java.util.Set;
 import java.util.UUID;
 
 public interface LocalCache extends DataProvider {
-    //TODO: Update last use on LoadObject
     @Nullable
     <S extends IPipelineData> S loadObject(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID);
 
@@ -26,4 +26,6 @@ public interface LocalCache extends DataProvider {
     <S extends IPipelineData> Set<S> loadAllData(@NotNull Class<? extends S> dataClass);
 
     <S extends IPipelineData> S instantiateData(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID);
+
+    <S extends IPipelineData> DataAccess<S> createAccess(@NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID);
 }

@@ -5,6 +5,9 @@ import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 
 import java.util.UUID;
 
+/**
+ * Sends instruction messages to other network participants
+ */
 public interface Transmitter extends SystemPart {
     long sendMessage(Instruction<?> message, UUID... receivers);
 

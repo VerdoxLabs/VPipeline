@@ -53,6 +53,10 @@ public class RedisConnection implements SystemPart {
         return redissonClient.getTopic(key, new SerializationCodec());
     }
 
+    public RedissonClient getRedissonClient() {
+        return redissonClient;
+    }
+
     @Override
     public void shutdown() {
         this.redissonClient.shutdown();

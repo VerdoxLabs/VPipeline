@@ -1,6 +1,5 @@
 package de.verdox.vpipeline.api;
 
-import de.verdox.vpipeline.api.settings.ConfigBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.reflections.Reflections;
 
@@ -30,9 +29,6 @@ public final class VNetwork {
         }
         NetworkLogger.getLogger().setLevel(Level.ALL);
         VNetwork.pipelineService = pipelineService;
-
-        ConfigBuilder.create("testFile.yml").setIfNotExists("testPath", 1).build();
-
     }
 
     private static <T> T instantiateSingleton(@NotNull Class<? extends T> type) {

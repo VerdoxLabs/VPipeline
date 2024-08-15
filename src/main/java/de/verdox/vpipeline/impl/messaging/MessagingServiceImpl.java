@@ -159,7 +159,7 @@ public class MessagingServiceImpl implements MessagingService {
             throw new IllegalArgumentException("[" + getSessionIdentifier() + "] Instruction not registered in message factory yet");
 
 
-        var instruction = getMessageFactory().getInstructionType(id).instanceSupplier().get();
+        var instruction = getMessageFactory().getCachedInstructionData(id).instanceSupplier().get();
         consumer.accept((T) instruction);
 
         return (ResponseCollector<R>) sendInstruction(instruction, receivers);

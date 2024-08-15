@@ -12,12 +12,13 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 public interface MessagingService extends SystemPart {
-
     NetworkParticipant getNetworkParticipant();
     Set<RemoteMessageReceiver> getRemoteMessageReceivers();
     void sendKeepAlivePing();
     Transmitter getTransmitter();
-    UUID getSessionUUID();
+    default UUID getSessionUUID(){
+        return getNetworkParticipant().getUUID();
+    }
     String getSessionIdentifier();
     MessageFactory getMessageFactory();
 

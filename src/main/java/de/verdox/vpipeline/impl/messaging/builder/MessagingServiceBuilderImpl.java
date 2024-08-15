@@ -4,8 +4,9 @@ import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.messaging.builder.MessagingServiceBuilder;
 import de.verdox.vpipeline.api.messaging.Transmitter;
-import de.verdox.vpipeline.api.modules.redis.messaging.RedisTransmitter;
+import de.verdox.vpipeline.api.messaging.parts.transmitter.RedisTransmitter;
 import de.verdox.vpipeline.impl.messaging.MessagingServiceImpl;
+import de.verdox.vpipeline.impl.util.RedisConnection;
 import org.jetbrains.annotations.NotNull;
 
 public class MessagingServiceBuilderImpl implements MessagingServiceBuilder {
@@ -22,7 +23,7 @@ public class MessagingServiceBuilderImpl implements MessagingServiceBuilder {
 
     @Override
     public MessagingServiceBuilder useRedisTransmitter(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
-        this.transmitter = new RedisTransmitter(clusterMode, addressArray, redisPassword);
+        this.transmitter = new RedisTransmitter(new RedisConnection(clusterMode, addressArray, redisPassword));
         return this;
     }
 

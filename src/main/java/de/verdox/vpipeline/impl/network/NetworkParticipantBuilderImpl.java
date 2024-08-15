@@ -1,6 +1,5 @@
 package de.verdox.vpipeline.impl.network;
 
-import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.NetworkParticipantBuilder;
 import de.verdox.vpipeline.api.messaging.builder.MessagingServiceBuilder;
@@ -11,8 +10,6 @@ import de.verdox.vpipeline.impl.messaging.builder.MessagingServiceBuilderImpl;
 import de.verdox.vpipeline.impl.pipeline.builder.PipelineBuilderImpl;
 import de.verdox.vpipeline.impl.pipeline.core.PipelineImpl;
 
-import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
@@ -51,13 +48,11 @@ public class NetworkParticipantBuilderImpl implements NetworkParticipantBuilder 
     public NetworkParticipant build() {
         if (this.name == null)
             throw new IllegalArgumentException("A network participant needs a name.");
-        if (this.service == null)
-            throw new IllegalArgumentException("A network participant needs a ScheduledExecutorService.");
+/*        if (this.service == null)
+            throw new IllegalArgumentException("A network participant needs a ScheduledExecutorService.");*/
 
         if (this.messagingServiceBuilder != null)
             this.messagingServiceBuilder.withIdentifier(name);
-        if (this.pipelineBuilder != null)
-            this.pipelineBuilder.withExecutorService(service);
 
         var pipeline = this.pipelineBuilder != null ? this.pipelineBuilder.buildPipeline() : null;
         var messagingService = this.messagingServiceBuilder != null ? this.messagingServiceBuilder.buildMessagingService() : null;

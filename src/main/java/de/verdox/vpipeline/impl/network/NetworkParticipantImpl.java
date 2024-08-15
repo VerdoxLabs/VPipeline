@@ -1,18 +1,18 @@
 package de.verdox.vpipeline.impl.network;
 
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.AccessInvalidException;
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.LockableAction;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.network.RemoteParticipant;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
-import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -27,49 +27,53 @@ public record NetworkParticipantImpl(UUID uuid, String identifier, @Nullable Pip
         if (pipeline != null) {
             this.pipeline.getDataRegistry().registerType(RemoteParticipantImpl.class);
 
-            if (this.pipeline.exist(RemoteParticipantImpl.class, uuid).join()) {
+            if (this.pipeline.exist(RemoteParticipantImpl.class, uuid)) {
                 NetworkLogger.warning("There is already a pipeline running with this uuid");
                 shutdown();
                 return;
             }
         }
 
-        this.service.scheduleAtFixedRate(() -> {
+        if (this.service != null)
+            this.service.scheduleAtFixedRate(() -> {
 
-            if (this.pipeline != null) {
-                this.pipeline.loadOrCreate(RemoteParticipantImpl.class, uuid).thenApply(pipelineLock -> {
-                    pipelineLock.performWriteOperation(remoteParticipant -> remoteParticipant.setIdentifier(identifier));
-                    return pipelineLock;
-                });
-            }
+                if (this.pipeline != null) {
+                    try(LockableAction.Write<RemoteParticipantImpl> access = this.pipeline.loadOrCreate(RemoteParticipantImpl.class, uuid).write()){
+                        access.get().setIdentifier(identifier);
+                        access.commitChanges(true);
+                    }
+                    catch (AccessInvalidException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
 
-            if (this.messagingService != null) {
-                this.messagingService.sendKeepAlivePing();
-            }
+                if (this.messagingService != null) {
+                    this.messagingService.sendKeepAlivePing();
+                }
 
 
-        }, 0L, 5, TimeUnit.SECONDS);
+            }, 0L, 5, TimeUnit.SECONDS);
         NetworkLogger.info("Network participant up and running");
     }
 
     @Override
-    public CompletableFuture<Set<DataReference<RemoteParticipant>>> getOnlineNetworkClients() {
+    public Set<DataAccess<? extends RemoteParticipant>> getOnlineNetworkClients() {
         if (this.pipeline == null)
-            return CompletableFuture.completedFuture(new HashSet<>());
+            throw new IllegalStateException("No pipeline was instantiated");
         return pipeline.loadAllData(RemoteParticipantImpl.class);
     }
 
     @Override
-    public DataReference<RemoteParticipant> getOnlineNetworkClient(@NotNull String identifier) {
+    public DataAccess<RemoteParticipant> getOnlineNetworkClient(@NotNull String identifier) {
         Objects.requireNonNull(pipeline);
         Objects.requireNonNull(identifier);
-        return pipeline.createDataReference(RemoteParticipantImpl.class, RemoteParticipant.getParticipantUUID(identifier));
+        return pipeline.load(RemoteParticipantImpl.class, RemoteParticipant.getParticipantUUID(identifier));
     }
 
     @Override
-    public DataReference<RemoteParticipant> getAsNetworkClient() {
+    public DataAccess<RemoteParticipant> getAsNetworkClient() {
         Objects.requireNonNull(pipeline);
-        return pipeline.createDataReference(RemoteParticipantImpl.class, uuid);
+        return pipeline.load(RemoteParticipantImpl.class, uuid);
     }
 
     @Override
@@ -85,7 +89,7 @@ public record NetworkParticipantImpl(UUID uuid, String identifier, @Nullable Pip
     @Override
     public void shutdown() {
         if (this.pipeline != null) {
-            this.pipeline.delete(RemoteParticipantImpl.class, uuid).join();
+            this.pipeline.delete(RemoteParticipantImpl.class, uuid);
             pipeline.shutdown();
         }
         if (this.messagingService != null)

@@ -52,7 +52,7 @@ public class MessageFactoryImpl implements de.verdox.vpipeline.api.messaging.Mes
     }
 
     @Override
-    public CachedInstructionData<?> getInstructionType(int id) {
+    public CachedInstructionData<?> getCachedInstructionData(int id) {
         return instructionTypes.getOrDefault(id, null);
     }
 

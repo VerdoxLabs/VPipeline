@@ -26,7 +26,7 @@ public class ResponseCollectorImpl<T> implements ResponseCollector<T> {
             return;
         var future = new CompletableFuture<T>();
         actions.forEach(future::whenComplete);
-        future.completeAsync(() -> value).orTimeout(10, TimeUnit.SECONDS);
+        future.completeAsync(() -> value);
         receivedValues.put(transmitter, future);
     }
 
@@ -47,7 +47,7 @@ public class ResponseCollectorImpl<T> implements ResponseCollector<T> {
             if (test.test(t))
                 future.complete(t);
         });
-        return future.orTimeout(10, TimeUnit.SECONDS);
+        return future;
     }
 
     public long getAmountReceivedValues() {

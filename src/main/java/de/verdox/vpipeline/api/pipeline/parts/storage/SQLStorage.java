@@ -1,13 +1,11 @@
-package de.verdox.vpipeline.api.modules.sql;
+package de.verdox.vpipeline.api.pipeline.parts.storage;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
-import de.verdox.vpipeline.api.pipeline.parts.DataProviderLock;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vpipeline.api.pipeline.parts.RemoteStorage;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
-import de.verdox.vpipeline.impl.pipeline.parts.DataProviderLockImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,14 +22,13 @@ public abstract class SQLStorage implements GlobalStorage, RemoteStorage {
 
     protected static final String TABLE_COLUMN_KEY = "UUID";
     protected static final String TABLE_COLUMN_VAL = "Document";
-    private final DataProviderLock dataProviderLock = new DataProviderLockImpl();
 
     @Override
     public JsonElement loadData(@NotNull Class<? extends IPipelineData> dataClass, @NotNull UUID objectUUID) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
-        return dataProviderLock.executeOnReadLock(() -> executeQuery(
+        return executeQuery(
                 String.format("SELECT %s FROM `%s` WHERE %s = ?", TABLE_COLUMN_VAL, tableName(dataClass), TABLE_COLUMN_KEY),
                 resultSet -> {
                     try {
@@ -43,7 +40,7 @@ public abstract class SQLStorage implements GlobalStorage, RemoteStorage {
                 },
                 null,
                 objectUUID.toString()
-        ));
+        );
     }
 
     @Override
@@ -51,7 +48,7 @@ public abstract class SQLStorage implements GlobalStorage, RemoteStorage {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
-        return dataProviderLock.executeOnReadLock(() -> executeQuery(
+        return executeQuery(
                 String.format("SELECT %s FROM `%s` WHERE %s = ?", TABLE_COLUMN_KEY, tableName(dataClass), TABLE_COLUMN_KEY),
                 resultSet -> {
                     try {
@@ -62,7 +59,7 @@ public abstract class SQLStorage implements GlobalStorage, RemoteStorage {
                     }
                 },
                 false,
-                objectUUID.toString()));
+                objectUUID.toString());
     }
 
     @Override
@@ -71,20 +68,17 @@ public abstract class SQLStorage implements GlobalStorage, RemoteStorage {
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
         Objects.requireNonNull(dataToSave, "dataToSave can't be null!");
 
-        dataProviderLock.executeOnWriteLock(() -> {
-            if (!dataExist(dataClass, objectUUID)) {
-                executeUpdate(
-                        "INSERT INTO `" + tableName(dataClass) + "` (" + TABLE_COLUMN_KEY + "," + TABLE_COLUMN_VAL + ") VALUES (?, ?);",
-                        objectUUID.toString(), dataToSave
-                );
-            } else {
-                executeUpdate(
-                        "UPDATE `" + tableName(dataClass) + "` SET " + TABLE_COLUMN_VAL + "=? WHERE " + TABLE_COLUMN_KEY + "=?",
-                        dataToSave, objectUUID.toString()
-                );
-            }
-            return null;
-        });
+        if (!dataExist(dataClass, objectUUID)) {
+            executeUpdate(
+                    "INSERT INTO `" + tableName(dataClass) + "` (" + TABLE_COLUMN_KEY + "," + TABLE_COLUMN_VAL + ") VALUES (?, ?);",
+                    objectUUID.toString(), dataToSave
+            );
+        } else {
+            executeUpdate(
+                    "UPDATE `" + tableName(dataClass) + "` SET " + TABLE_COLUMN_VAL + "=? WHERE " + TABLE_COLUMN_KEY + "=?",
+                    dataToSave, objectUUID.toString()
+            );
+        }
     }
 
     @Override
@@ -92,17 +86,17 @@ public abstract class SQLStorage implements GlobalStorage, RemoteStorage {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
         Objects.requireNonNull(objectUUID, "objectUUID can't be null!");
 
-        return dataProviderLock.executeOnWriteLock(() -> executeUpdate(
+        return executeUpdate(
                 String.format("DELETE FROM `%s` WHERE %s = ?", tableName(dataClass), TABLE_COLUMN_KEY),
                 objectUUID.toString()
-        ) != -1);
+        ) != -1;
     }
 
     @Override
     public Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass) {
         Objects.requireNonNull(dataClass, "dataClass can't be null!");
 
-        return dataProviderLock.executeOnReadLock(() -> executeQuery(
+        return executeQuery(
                 String.format("SELECT %s FROM `%s`;", TABLE_COLUMN_KEY, tableName(dataClass)),
                 resultSet -> {
                     Set<UUID> keys = new HashSet<>();
@@ -115,7 +109,7 @@ public abstract class SQLStorage implements GlobalStorage, RemoteStorage {
                     }
 
                     return keys;
-                }, new HashSet<>()));
+                }, new HashSet<>());
     }
 
     private String tableName(@NotNull Class<? extends IPipelineData> dataClass) {
@@ -147,9 +141,4 @@ public abstract class SQLStorage implements GlobalStorage, RemoteStorage {
             @Nullable T def,
             @NotNull Object... objects
     );
-
-    @Override
-    public DataProviderLock getDataProviderLock() {
-        return dataProviderLock;
-    }
 }
