@@ -1,5 +1,6 @@
 import de.verdox.vpipeline.api.pipeline.parts.cache.local.AccessInvalidException;
 import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataSubscriber;
 import de.verdox.vpipeline.api.pipeline.parts.cache.local.LockableAction;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.NetworkParticipant;
@@ -17,9 +18,10 @@ import org.junit.jupiter.api.Test;
 import redis.embedded.RedisServer;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
-public class PipelineTests {
+public class PipelineSyncTest {
     public static NetworkParticipant networkParticipant1;
     public static NetworkParticipant networkParticipant2;
     public static Pipeline pipeline;
@@ -85,6 +87,12 @@ public class PipelineTests {
         }
     }
 
+    /**
+     * Checks if data that was created on one pipeline object is loaded into the remote local cache pipeline
+     * A thread sleep is used since the local redis server does not run on the same thread which is why the remote pipeline will not have received the creation call yet.
+     *
+     * @throws InterruptedException if the test is interrupted
+     */
     @Test
     public void testCreateExistRemoteInLocalCache() throws InterruptedException {
         UUID uuid = UUID.randomUUID();
@@ -94,6 +102,9 @@ public class PipelineTests {
         Assertions.assertTrue(exist);
     }
 
+    /**
+     * Checks if data that was created on one pipeline object is recognized in the remote global cache object immediately.
+     */
     @Test
     public void testCreateExistRemoteInGlobalCacheInstantly() {
         UUID uuid = UUID.randomUUID();
@@ -102,6 +113,9 @@ public class PipelineTests {
         Assertions.assertTrue(exist);
     }
 
+    /**
+     * Checks if data that was created on one pipeline object is recognized on a remote pipeline object immediately.
+     */
     @Test
     public void testCreateExistInRemotePipelineInstantly() {
         UUID uuid = UUID.randomUUID();
@@ -110,8 +124,11 @@ public class PipelineTests {
         Assertions.assertTrue(exist);
     }
 
+    /**
+     * Checks if data that was created and updated has the correct state on the remote pipeline
+     */
     @Test
-    public void testAlterDataCheckOnRemote1() throws InterruptedException {
+    public void testAlterDataCheckOnRemote1() {
         UUID uuid = UUID.randomUUID();
         try (LockableAction.Write<TestData> write = pipeline.loadOrCreate(TestData.class, uuid).write()) {
             TestData testData = write.get();
@@ -120,7 +137,6 @@ public class PipelineTests {
         } catch (AccessInvalidException e) {
             throw new RuntimeException(e);
         }
-        Thread.sleep(50);
 
         try (LockableAction.Read<TestData> read = remotePipeline.load(TestData.class, uuid).read()) {
             TestData testData = read.get();
@@ -131,48 +147,47 @@ public class PipelineTests {
         }
     }
 
+    /**
+     * Checks if data that was created and updated has the correct state on the remote pipeline
+     */
     @Test
-    public void testAlterDataCheckOnRemote2() throws InterruptedException {
+    public void testAlterDataCheckOnRemote2() {
         UUID uuid = UUID.randomUUID();
         DataAccess<TestData> access = pipeline.loadOrCreate(TestData.class, uuid);
-        Thread.sleep(50);
-        DataAccess<TestData> accessRemote = remotePipeline.load(TestData.class, uuid);
+        DataAccess<TestData> accessRemote = remotePipeline.loadOrCreate(TestData.class, uuid);
         Assertions.assertNotNull(accessRemote);
-        Thread.sleep(50);
         try (LockableAction.Write<TestData> write = access.write()) {
             TestData testData = write.get();
             testData.testInt = 1;
             testData.save(true);
-        }
-        catch (AccessInvalidException e) {
+        } catch (AccessInvalidException e) {
             throw new RuntimeException(e);
         }
         try (LockableAction.Read<TestData> read = accessRemote.read()) {
             TestData testData = read.get();
             int observedRemotely = testData.testInt;
             Assertions.assertEquals(1, observedRemotely);
-        }
-        catch (AccessInvalidException e) {
+        } catch (AccessInvalidException e) {
             throw new RuntimeException(e);
         }
     }
 
+    /**
+     * Checks if data that was updated in parallel by two pipelines has the correct state on both pipelines after the operation
+     */
     @Test
-    public void testAlterDataCheckOnRemote3() throws InterruptedException {
+    public void testAlterDataByTwoParties() throws InterruptedException {
         UUID uuid = UUID.randomUUID();
         DataAccess<TestData> access = pipeline.loadOrCreate(TestData.class, uuid);
-        Thread.sleep(50);
-        DataAccess<TestData> accessRemote = remotePipeline.load(TestData.class, uuid);
+        DataAccess<TestData> accessRemote = remotePipeline.loadOrCreate(TestData.class, uuid);
         Assertions.assertNotNull(accessRemote);
-        Thread.sleep(50);
 
         Thread t1 = new Thread(() -> {
             try (LockableAction.Write<TestData> write = access.write()) {
                 TestData testData = write.get();
                 testData.testInt += 1;
                 testData.save(true);
-            }
-            catch (AccessInvalidException e) {
+            } catch (AccessInvalidException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -182,8 +197,7 @@ public class PipelineTests {
                 TestData testData = write.get();
                 testData.testInt += 1;
                 testData.save(true);
-            }
-            catch (AccessInvalidException e) {
+            } catch (AccessInvalidException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -198,8 +212,7 @@ public class PipelineTests {
             TestData testData = read.get();
             int observedRemotely = testData.testInt;
             Assertions.assertEquals(2, observedRemotely);
-        }
-        catch (AccessInvalidException e) {
+        } catch (AccessInvalidException e) {
             throw new RuntimeException(e);
         }
 
@@ -207,9 +220,115 @@ public class PipelineTests {
             TestData testData = read.get();
             int observedRemotely = testData.testInt;
             Assertions.assertEquals(2, observedRemotely);
-        }
-        catch (AccessInvalidException e) {
+        } catch (AccessInvalidException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Checks if only one create call is recognized by the network. After the creation both pipelines must have the same object state
+     */
+    @Test
+    public void testCreateTwoTimes() {
+        UUID uuid = UUID.randomUUID();
+
+        pipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 1);
+        remotePipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 2);
+
+        try (LockableAction.Read<TestData> read1 = pipeline.load(TestData.class, uuid).read(); LockableAction.Read<TestData> read2 = remotePipeline.load(TestData.class, uuid).read()) {
+            Assertions.assertEquals(read1.get().testInt, read2.get().testInt);
+            Assertions.assertEquals(1, read1.get().testInt);
+        } catch (AccessInvalidException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Two pipelines create new data in parallel with the same type and uuid. It is random which creation call comes first.
+     * Thus, we only do a metamorphic test to check if the two pipelines read the same value
+     */
+    @Test
+    public void testParallelCreateMetamorphic() throws InterruptedException {
+        UUID uuid = UUID.randomUUID();
+
+        Thread t1 = new Thread(() -> {
+            pipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 1);
+        });
+
+        Thread t2 = new Thread(() -> {
+            pipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 2);
+        });
+
+        t1.start();
+        t2.start();
+
+        t1.join();
+        t2.join();
+
+        try (LockableAction.Read<TestData> read1 = pipeline.load(TestData.class, uuid).read(); LockableAction.Read<TestData> read2 = remotePipeline.load(TestData.class, uuid).read()) {
+            Assertions.assertEquals(read1.get().testInt, read2.get().testInt);
+        } catch (AccessInvalidException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * A DataAccess object exists even after the data was deleted from the pipeline.
+     * An operation on this data access object should fail at this point with an exception.
+     */
+    @Test
+    public void testThrowsExceptionWhenDataIsAlreadyDeleted() {
+        UUID uuid = UUID.randomUUID();
+
+        pipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 1);
+        DataAccess<TestData> remoteAccess = remotePipeline.loadOrCreate(TestData.class, uuid);
+        pipeline.delete(TestData.class, uuid);
+
+        Assertions.assertThrows(AccessInvalidException.class, () -> {
+            try (LockableAction.Read<TestData> read = remoteAccess.read()) {
+                read.get();
+            }
+        }, "The DataAccess should throw an AccessInvalidException because the data was already deleted");
+    }
+
+    /**
+     * Data is deleted. After that a pipeline tries to load the data to create a data access object.
+     * The data access object should be null at this point.
+     */
+    @Test
+    public void testNoAccessCreatedWhenDataWasDeleted() {
+        UUID uuid = UUID.randomUUID();
+
+        pipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 1);
+        remotePipeline.load(TestData.class, uuid);
+        pipeline.delete(TestData.class, uuid);
+        DataAccess<TestData> remoteAccess = remotePipeline.load(TestData.class, uuid);
+        Assertions.assertNull(remoteAccess);
+    }
+
+    /**
+     * A {@link DataSubscriber} subscribes onto a {@link DataAccess} object.
+     * The data is changed by the other pipeline. The {@link DataSubscriber} will receive the updated value accordingly
+     * @throws InterruptedException
+     */
+    @Test
+    public void testDataSubscribersBeingNotified() throws InterruptedException {
+        UUID uuid = UUID.randomUUID();
+
+        DataAccess<TestData> access = pipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 1);
+
+        AtomicInteger container = new AtomicInteger(0);
+        access.subscribe(DataSubscriber.observeNumber(testData -> testData.testInt, container::set));
+
+        DataAccess<TestData> remoteAccess = remotePipeline.loadOrCreate(TestData.class, uuid);
+        try (LockableAction.Write<TestData> write = remoteAccess.write()) {
+            TestData testData = write.get();
+            testData.testInt += 1;
+        } catch (AccessInvalidException e) {
+            throw new RuntimeException(e);
+        }
+        Thread.sleep(50);
+
+        Assertions.assertEquals(2, container.get());
     }
 }

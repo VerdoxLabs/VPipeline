@@ -19,12 +19,11 @@ public class PipelineBuilderImpl implements PipelineBuilder {
     private GlobalCache globalCache;
     private GlobalStorage globalStorage;
     private SynchronizingService synchronizingService;
-    private NetworkDataLockingService networkDataLockingService;
-
+    private NetworkDataLockingService networkDataLockingService = NetworkDataLockingService.createDummy();
     private Consumer<GsonBuilder> gsonBuilderConsumer;
     private LocalCache localCache = new HashedLocalCache();
 
-    public PipelineBuilder withLocalCache(LocalCache localCache){
+    public PipelineBuilder withLocalCache(LocalCache localCache) {
         this.localCache = localCache;
         return this;
     }
@@ -44,8 +43,7 @@ public class PipelineBuilderImpl implements PipelineBuilder {
     }
 
     @Override
-    public PipelineBuilder withNetworkDataLockingService(@NotNull NetworkDataLockingService networkDataLockingService){
-        checkNetworkDataLockingService();
+    public PipelineBuilder withNetworkDataLockingService(@NotNull NetworkDataLockingService networkDataLockingService) {
         this.networkDataLockingService = networkDataLockingService;
         return this;
     }
@@ -63,7 +61,7 @@ public class PipelineBuilderImpl implements PipelineBuilder {
         return this;
     }
 
-    @Override
+
     public Pipeline buildPipeline() {
         if (globalStorage == null && globalCache == null)
             NetworkLogger.warning("Both globalCache and globalStorage were not set during pipeline building phase.");

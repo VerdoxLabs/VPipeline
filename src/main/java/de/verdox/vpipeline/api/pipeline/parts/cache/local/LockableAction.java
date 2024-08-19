@@ -6,24 +6,26 @@ import java.io.Closeable;
 import java.util.concurrent.locks.Lock;
 
 public abstract class LockableAction<T extends IPipelineData> implements Closeable {
+    protected final DataAccess<T> dataAccess;
     protected final Lock lock;
     protected T initValue;
 
-    public LockableAction(Lock lock, T initValue) {
+    LockableAction(DataAccess<T> dataAccess, Lock lock, T initValue) {
+        this.dataAccess = dataAccess;
         this.lock = lock;
         this.initValue = initValue;
         this.lock.lock();
     }
 
     @Override
-    public final void close() {
+    public void close() {
         this.lock.unlock();
     }
 
     //TODO: Wenn Daten remote gelöscht werden müssen die DataAccess Objekte davon irgendwie mitbekommen.
     public static class Read<T extends IPipelineData> extends LockableAction<T> {
-        public Read(Lock lock, T initValue) {
-            super(lock, initValue);
+        public Read(DataAccess<T> dataAccess, Lock lock, T initValue) {
+            super(dataAccess, lock, initValue);
         }
 
         public T get() {
@@ -32,12 +34,19 @@ public abstract class LockableAction<T extends IPipelineData> implements Closeab
     }
 
     public static class Write<T extends IPipelineData> extends Read<T> {
-        public Write(Lock lock, T initValue) {
-            super(lock, initValue);
+        public Write(DataAccess<T> dataAccess, Lock lock, T initValue) {
+            super(dataAccess, lock, initValue);
         }
 
         public void commitChanges(boolean saveToStorage) {
             initValue.getAttachedPipeline().getAttachedPipeline().getPipelineSynchronizer().sync(initValue, saveToStorage);
+            dataAccess.notifySubscribers(get());
+        }
+
+        @Override
+        public void close() {
+            commitChanges(true);
+            super.close();
         }
     }
 }

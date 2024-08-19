@@ -14,7 +14,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
 public class NetworkParticipantBuilderImpl implements NetworkParticipantBuilder {
-    private PipelineBuilder pipelineBuilder;
+    private PipelineBuilderImpl pipelineBuilder;
     private MessagingServiceBuilder messagingServiceBuilder;
     private ScheduledExecutorService service;
     private String name;

@@ -33,7 +33,6 @@ public class MessagingServiceImpl implements MessagingService {
     private final EventBus eventBus;
     private MessageFactoryImpl messageFactoryImpl;
     private final Transmitter transmitter;
-    private final UUID sessionUUID;
     private final String sessionIdentifier;
     private NetworkParticipant networkParticipant;
     private final ScheduledExecutorService keepAliveThread = Executors.newSingleThreadScheduledExecutor();
@@ -43,7 +42,6 @@ public class MessagingServiceImpl implements MessagingService {
         Objects.requireNonNull(transmitter);
         this.sessionIdentifier = sessionIdentifier;
         this.transmitter = transmitter;
-        sessionUUID = RemoteParticipant.getParticipantUUID(sessionIdentifier);
 
         this.messageFactoryImpl = new MessageFactoryImpl(this);
         this.messageFactoryImpl.registerInstructionType(9998, KeepAlivePing.class, () -> new KeepAlivePing(UUID.randomUUID()));
@@ -53,7 +51,7 @@ public class MessagingServiceImpl implements MessagingService {
         this.eventBus = new EventBus();
         eventBus.register(this);
 
-        remoteParticipants.put(sessionUUID, new RemoteMessageReceiverImpl(sessionUUID, sessionIdentifier));
+        remoteParticipants.put(getSessionUUID(), new RemoteMessageReceiverImpl(getSessionUUID(), sessionIdentifier));
         sendKeepAlivePing();
 
         keepAliveThread.scheduleAtFixedRate(() -> {
@@ -63,7 +61,7 @@ public class MessagingServiceImpl implements MessagingService {
                     .removeIf(entry -> !receivedKeepAlivePings.contains(entry.getValue()) && !entry
                             .getValue()
                             .getUuid()
-                            .equals(sessionUUID));
+                            .equals(getSessionUUID()));
             receivedKeepAlivePings.clear();
             pendingInstructions.forEach((uuid, instruction) -> pendingInstructions.computeIfPresent(uuid, (uuid1, instruction1) -> {
                 if (!instruction1.getResponseCollector().hasReceivedAllAnswers())
@@ -259,11 +257,6 @@ public class MessagingServiceImpl implements MessagingService {
     @Override
     public Transmitter getTransmitter() {
         return transmitter;
-    }
-
-    @Override
-    public UUID getSessionUUID() {
-        return sessionUUID;
     }
 
     @Override

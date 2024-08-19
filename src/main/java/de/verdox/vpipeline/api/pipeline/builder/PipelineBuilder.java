@@ -53,11 +53,4 @@ public interface PipelineBuilder {
      * @return the builder
      */
     PipelineBuilder withGson(Consumer<GsonBuilder> gsonBuilderConsumer);
-
-    /**
-     * Builds the pipeline
-     *
-     * @return the pipeline
-     */
-    Pipeline buildPipeline();
 }

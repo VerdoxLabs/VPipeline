@@ -14,6 +14,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public interface Pipeline extends SystemPart {
     /**
@@ -109,10 +110,25 @@ public interface Pipeline extends SystemPart {
      * to perform read/write operations.
      * @param type The data class
      * @param uuid the uuid of the data
+     * @param immediateWriteOperation An immediate write operation that is run after the object creation
      * @return the data access object when data was loaded or created successfully.
      * @param <T> the generic data type
      */
-    @NotNull <T extends IPipelineData> DataAccess<T> loadOrCreate(@NotNull Class<? extends T> type, @NotNull UUID uuid);
+    @NotNull <T extends IPipelineData> DataAccess<T> loadOrCreate(@NotNull Class<? extends T> type, @NotNull UUID uuid, @Nullable Consumer<T> immediateWriteOperation);
+
+    /**
+     * Used to load {@link IPipelineData} into the {@link LocalCache} of the {@link Pipeline} or create the data if it was not found anywhere in the pipeline.
+     * When the {@link IPipelineData} was loaded successfully a {@link DataAccess} object is created that can be used
+     * to perform read/write operations.
+     * @param type The data class
+     * @param uuid the uuid of the data
+     * @return the data access object when data was loaded or created successfully.
+     * @param <T> the generic data type
+     */
+    default @NotNull <T extends IPipelineData> DataAccess<T> loadOrCreate(@NotNull Class<? extends T> type, @NotNull UUID uuid){
+        return loadOrCreate(type, uuid, null);
+    }
+
 
     /**
      * Used to load all objects of {@link IPipelineData} into the {@link LocalCache} of the {@link Pipeline} or create the data if it was not found anywhere in the pipeline.

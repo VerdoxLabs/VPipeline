@@ -9,6 +9,9 @@ import java.util.function.Consumer;
 public interface NetworkParticipantBuilder {
 
     NetworkParticipantBuilder withName(String name);
+    default NetworkParticipantBuilder withPipeline(){
+        return withPipeline(pipelineBuilder -> {});
+    }
     NetworkParticipantBuilder withPipeline(Consumer<PipelineBuilder> pipelineBuilder);
     NetworkParticipantBuilder withMessagingService(Consumer<MessagingServiceBuilder> pipelineBuilder);
 

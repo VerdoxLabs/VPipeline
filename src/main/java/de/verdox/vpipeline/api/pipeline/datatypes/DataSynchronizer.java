@@ -5,6 +5,7 @@ import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.core.SystemPart;
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import org.jetbrains.annotations.NotNull;
 
@@ -193,6 +194,8 @@ public interface DataSynchronizer extends SystemPart {
             String dataBeforeSync = data.serialize().toString();
             data.deserialize(dataToUpdate);
             data.onSync(dataBeforeSync);
+            DataAccess<IPipelineData> access = pipeline.getLocalCache().createAccess(dataClass, dataUUID);
+            access.notifySubscribers(data);
         }
 
         @Override

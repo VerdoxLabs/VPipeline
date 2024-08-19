@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 
 public class HashedLocalCache implements LocalCache {
     private final Map<Class<? extends IPipelineData>, Map<UUID, IPipelineData>> cache = new HashMap<>();
-    private final Map<IPipelineData, DataAccess<IPipelineData>> cachedAccess = new HashMap<>();
+    private final Map<Class<? extends IPipelineData>, Map<UUID, DataAccess<IPipelineData>>> cachedAccess = new HashMap<>();
     private final AttachedPipeline attachedPipeline;
     private final ReentrantReadWriteLock reentrantReadWriteLock = new ReentrantReadWriteLock();
 
@@ -167,8 +167,9 @@ public class HashedLocalCache implements LocalCache {
         Lock objectReadLock = getAttachedPipeline().getAttachedPipeline().getNetworkDataLockingService().getReadLock(dataClass, objectUUID);
         Lock objectWriteLock = getAttachedPipeline().getAttachedPipeline().getNetworkDataLockingService().getWriteLock(dataClass, objectUUID);
 
-        S dataObject = loadObject(dataClass, objectUUID);
-        return (DataAccess<S>) cachedAccess.computeIfAbsent(dataObject, iPipelineData -> new DataAccess<>(this, dataClass, objectUUID, objectReadLock, objectWriteLock));
+        return (DataAccess<S>) cachedAccess.computeIfAbsent(dataClass, aClass -> new ConcurrentHashMap<>()).computeIfAbsent(objectUUID, uuid ->
+                new DataAccess<>(this, dataClass, objectUUID, objectReadLock, objectWriteLock)
+        );
     }
 
     @Override
@@ -183,8 +184,13 @@ public class HashedLocalCache implements LocalCache {
 
     private void deleteFromCache(IPipelineData pipelineData) {
         cache.get(pipelineData.getClass()).remove(pipelineData.getObjectUUID());
-        if (cache.get(pipelineData.getClass()).size() == 0)
+        if (cache.get(pipelineData.getClass()).isEmpty())
             cache.remove(pipelineData.getClass());
-        cachedAccess.remove(pipelineData);
+
+        if (cachedAccess.containsKey(pipelineData.getClass())) {
+            cachedAccess.get(pipelineData.getClass()).remove(pipelineData.getObjectUUID());
+            if (cachedAccess.get(pipelineData.getClass()).isEmpty())
+                cachedAccess.remove(pipelineData.getClass());
+        }
     }
 }

@@ -3,12 +3,15 @@ package de.verdox.vpipeline.api.pipeline.parts.cache.local;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.LocalCache;
 
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 
 /**
  * Represents a thread safe data access to a {@link IPipelineData} object.
+ *
  * @param <T> The pipeline data encapsulated by this access
  */
 public class DataAccess<T extends IPipelineData> {
@@ -17,6 +20,7 @@ public class DataAccess<T extends IPipelineData> {
     private final UUID objectUUID;
     private final Lock readLock;
     private final Lock writeLock;
+    private final Set<DataSubscriber<T, ?>> subscribers = new HashSet<>();
 
     DataAccess(LocalCache localCache, Class<? extends T> type, UUID objectUUID, Lock readLock, Lock writeLock) {
         this.localCache = localCache;
@@ -24,6 +28,22 @@ public class DataAccess<T extends IPipelineData> {
         this.objectUUID = objectUUID;
         this.readLock = readLock;
         this.writeLock = writeLock;
+    }
+
+    public DataAccess<T> subscribe(DataSubscriber<T, ?> subscriber) {
+        subscribers.add(subscriber);
+        try (var read = read()) {
+            subscriber.update(read.get());
+        } catch (AccessInvalidException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
+    }
+
+    public void notifySubscribers(T updatedObject) {
+        for (DataSubscriber<T, ?> subscriber : subscribers) {
+            subscriber.update(updatedObject);
+        }
     }
 
     private boolean killed() {
@@ -38,13 +58,14 @@ public class DataAccess<T extends IPipelineData> {
      * lock has been acquired
      * <p>
      * Several read locks can be acquired as long as there is no write lock taken on this object at the same time.
+     *
      * @return The read access
      * @throws AccessInvalidException thrown when the object was deleted from the network but the access is still used
      */
     public LockableAction.Read<T> read() throws AccessInvalidException {
         if (killed())
             throw new AccessInvalidException("DataAccess invalid for type " + type + " with uuid " + objectUUID);
-        return new LockableAction.Read<>(readLock, localCache.loadObject(type, objectUUID));
+        return new LockableAction.Read<>(this, readLock, localCache.loadObject(type, objectUUID));
     }
 
     /**
@@ -55,13 +76,14 @@ public class DataAccess<T extends IPipelineData> {
      * lock has been acquired
      * <p>
      * Only one write operation on the data may occur at a time in the network.
+     *
      * @return The read access
      * @throws AccessInvalidException thrown when the object was deleted from the network but the access is still used
      */
     public LockableAction.Write<T> write() throws AccessInvalidException {
         if (killed())
             throw new AccessInvalidException("DataAccess invalid for type " + type + " with uuid " + objectUUID);
-        return new LockableAction.Write<>(writeLock, localCache.loadObject(type, objectUUID));
+        return new LockableAction.Write<>(this, writeLock, localCache.loadObject(type, objectUUID));
     }
 
     @Override

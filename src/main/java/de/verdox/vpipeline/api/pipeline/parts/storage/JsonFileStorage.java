@@ -105,8 +105,10 @@ public class JsonFileStorage implements GlobalStorage {
 
         File file = new File(path.toUri());
         if (!file.exists()) {
-            if (!file.getParentFile().mkdirs() || !file.createNewFile())
-                throw new RuntimeException("Could not create files for JsonFileStorage [" + path + "]");
+            if(!file.getParentFile().mkdirs() && !file.getParentFile().exists())
+                throw new RuntimeException("Could not create folder structure JsonFileStorage [" + path + "]");
+            else if (!file.createNewFile() && !file.exists())
+                throw new RuntimeException("Could not create save file for [" + path + "]");
         }
         try (FileWriter writer = new FileWriter(file)) {
             attachedPipeline.getGson().toJson(dataToSave, writer);
