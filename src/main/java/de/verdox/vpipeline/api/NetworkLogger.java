@@ -1,8 +1,5 @@
 package de.verdox.vpipeline.api;
 
-import de.verdox.vpipeline.api.pipeline.datatypes.PipelineData;
-
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;

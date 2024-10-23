@@ -8,11 +8,40 @@ import java.util.UUID;
 
 public interface Instruction<R> {
 
+    /**
+     * Returns the UUID of this instruction
+     * @return the uuid
+     */
     UUID getUuid();
+
+    /**
+     * Returns the unique id of this instruction type
+     * @return the id
+     */
     int getInstructionID();
+
+    /**
+     * Returns the timestamp when the instruction was created
+     * @return the timestamp
+     */
     long getCreationTimeStamp();
+
+    /**
+     * Returns whether the instruction awaits is a response to another instruction
+     * @return true if it is a response
+     */
     boolean isResponse();
+
+    /**
+     * Returns the uuid of the sender. This uuid corresponds to the uuid of the messaging service
+     * @return the uuid
+     */
     UUID getSenderUUID();
+
+    /**
+     * Returns the identifier of the sender. This corresponds to the id of the network participant this message was sent from.
+     * @return the identifier
+     */
     String getSenderIdentifier();
 
     /**
@@ -34,6 +63,10 @@ public interface Instruction<R> {
      */
     void onResponseReceive(MessagingService messagingService, R response);
 
+    /**
+     * Returns the response collector of this instruction
+     * @return the response collector
+     */
     ResponseCollector<R> getResponseCollector();
 }
 

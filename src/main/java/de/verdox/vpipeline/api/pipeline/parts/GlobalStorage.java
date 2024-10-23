@@ -1,9 +1,9 @@
 package de.verdox.vpipeline.api.pipeline.parts;
 
 import com.zaxxer.hikari.HikariDataSource;
-import de.verdox.vpipeline.api.modules.json.JsonFileStorage;
-import de.verdox.vpipeline.api.modules.mongo.MongoDBStorage;
-import de.verdox.vpipeline.api.modules.sql.mysql.MySQLStorage;
+import de.verdox.vpipeline.api.pipeline.parts.storage.JsonFileStorage;
+import de.verdox.vpipeline.api.pipeline.parts.storage.MongoDBStorage;
+import de.verdox.vpipeline.api.pipeline.parts.storage.MySQLStorage;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import org.jetbrains.annotations.NotNull;

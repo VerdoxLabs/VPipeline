@@ -1,14 +1,8 @@
 package de.verdox.vpipeline.api.settings;
 
-import org.simpleyaml.configuration.file.YamlConfiguration;
-import org.simpleyaml.configuration.serialization.ConfigurationSerializable;
-import org.simpleyaml.configuration.serialization.ConfigurationSerialization;
-
-import java.io.File;
-import java.io.IOException;
 
 public class ConfigBuilder {
-    private final File file;
+/*    private final File file;
     private final YamlConfiguration config;
 
     private ConfigBuilder(File file) {
@@ -66,5 +60,5 @@ public class ConfigBuilder {
 
     public static void registerSerializableType(Class<? extends ConfigurationSerializable> type) {
         ConfigurationSerialization.registerClass(type, "");
-    }
+    }*/
 }

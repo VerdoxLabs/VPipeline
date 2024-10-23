@@ -23,6 +23,4 @@ public interface DataProvider extends SystemPart {
     Set<UUID> getSavedUUIDs(@NotNull Class<? extends IPipelineData> dataClass);
 
     AttachedPipeline getAttachedPipeline();
-
-    DataProviderLock getDataProviderLock();
 }

@@ -6,7 +6,7 @@
 
     <groupId>de.verdox.vpipeline</groupId>
     <artifactId>VPipeline</artifactId>
-    <version>1.2</version>
+    <version>1.3</version>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
@@ -18,6 +18,10 @@
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
         </repository>
+        <repository>
+            <id>maven-central</id>
+            <url>https://repo1.maven.org/maven2/</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -26,6 +30,11 @@
             <artifactId>commons-codec</artifactId>
             <version>1.15</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId></groupId>
+            <artifactId></artifactId>
+            <classifier>mcc-serializer</classifier>
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
@@ -39,6 +48,12 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>com.github.kstyrc</groupId>
+            <artifactId>embedded-redis</artifactId>
+            <version>0.6</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>31.1-jre</version>
@@ -47,12 +62,12 @@
         <dependency>
             <groupId>org.redisson</groupId>
             <artifactId>redisson-all</artifactId>
-            <version>3.18.1</version>
+            <version>3.20.0</version>
         </dependency>
         <dependency>
             <groupId>org.mongodb</groupId>
             <artifactId>mongo-java-driver</artifactId>
-            <version>3.12.11</version>
+            <version>3.12.12</version>
             <scope>provided</scope>
         </dependency>
         <!--        <dependency>
@@ -63,23 +78,22 @@
         <dependency>
             <groupId>org.mongodb</groupId>
             <artifactId>bson</artifactId>
-            <version>4.7.1</version>
+            <version>4.9.0</version>
             <scope>provided</scope>
         </dependency>
         <!-- Jetbrains Annotations-->
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>23.0.0</version>
+            <version>24.0.1</version>
             <scope>provided</scope>
         </dependency>
         <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.31</version>
+            <version>8.0.33</version>
         </dependency>
-
         <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
@@ -89,20 +103,14 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.9.0</version>
+            <version>5.9.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>5.9.0</version>
+            <version>5.9.2</version>
             <scope>compile</scope>
-        </dependency>
-        <!-- Simple-YAML -->
-        <dependency>
-            <groupId>me.carleslc.Simple-YAML</groupId>
-            <artifactId>Simple-Yaml</artifactId>
-            <version>1.7.2</version>
         </dependency>
         <dependency>
             <groupId>org.reflections</groupId>

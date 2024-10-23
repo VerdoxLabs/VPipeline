@@ -58,7 +58,8 @@ public class DataRegistryImpl implements DataRegistry {
 
     @Override
     public boolean isTypeRegistered(Class<? extends IPipelineData> type) {
-        return cache.entrySet().stream().anyMatch(stringSetEntry -> stringSetEntry.getValue().contains(type));
+        var dataStorageID = AnnotationResolver.getDataStorageIdentifier(type);
+        return typesByDataStorageId.containsKey(dataStorageID) && typesByDataStorageId.get(dataStorageID).equals(type);
     }
 
     @Override

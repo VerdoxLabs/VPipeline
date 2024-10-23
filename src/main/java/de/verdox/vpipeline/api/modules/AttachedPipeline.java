@@ -2,6 +2,7 @@ package de.verdox.vpipeline.api.modules;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import org.jetbrains.annotations.NotNull;
 
@@ -28,7 +29,7 @@ public class AttachedPipeline {
     }
 
     public Gson getGson() {
-        Objects.requireNonNull(this.gson, "Not attached to a pipeline");
+        Objects.requireNonNull(this.gson, "No gson specified for attached pipeline because no pipeline was attached");
         return gson;
     }
 

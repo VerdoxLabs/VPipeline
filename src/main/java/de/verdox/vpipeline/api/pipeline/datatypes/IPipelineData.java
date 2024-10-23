@@ -1,17 +1,21 @@
 package de.verdox.vpipeline.api.pipeline.datatypes;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSerializer;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
-import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.Serializable;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 
 public interface IPipelineData {
 
+    /**
+     * Gets the uuid of the pipeline data
+     * @return the object uuid
+     */
     UUID getObjectUUID();
 
     /**
@@ -57,23 +61,37 @@ public interface IPipelineData {
     default void onCleanUp() {
     }
 
+    /**
+     * TODO: When is this called?
+     */
     default void cleanUp() {
         getSynchronizer().cleanUp();
         onCleanUp();
     }
 
+    /**
+     * Used to serialize this data object to json
+     * @return The serialized data in json format
+     */
     JsonElement serialize();
 
     /**
-     * @param jsonObject New Data to deserialize
-     * @return The Data before deserialization
+     * Used to deserialize data from a json object
+     * @param jsonObject The data to deserialize the object from
      */
-    String deserialize(JsonElement jsonObject);
-    String deserialize(String jsonString);
+    void deserialize(JsonElement jsonObject);
+
+    /**
+     * Used to deserialize data from a json object
+     * @param jsonString The data to deserialize the object from
+     */
+    default void deserialize(String jsonString){
+        deserialize(JsonParser.parseString(jsonString));
+    }
 
     @NotNull
-    Synchronizer getSynchronizer();
+    DataSynchronizer getSynchronizer();
     void updateLastUsage();
-    CompletableFuture<Void> save(boolean saveToStorage);
+    void save(boolean saveToStorage);
     AttachedPipeline getAttachedPipeline();
 }

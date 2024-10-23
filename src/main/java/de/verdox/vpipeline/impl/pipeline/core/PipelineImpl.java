@@ -1,23 +1,23 @@
 package de.verdox.vpipeline.impl.pipeline.core;
 
 import com.google.gson.GsonBuilder;
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
+import de.verdox.vpipeline.api.pipeline.core.NetworkDataLockingService;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
-import de.verdox.vpipeline.api.pipeline.core.PipelineLock;
 import de.verdox.vpipeline.api.pipeline.core.PipelineSynchronizer;
 import de.verdox.vpipeline.api.pipeline.datatypes.DataRegistry;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
-import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 import de.verdox.vpipeline.api.pipeline.enums.PreloadStrategy;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vpipeline.api.pipeline.parts.LocalCache;
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataSubscriber;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import de.verdox.vpipeline.impl.pipeline.datatypes.DataRegistryImpl;
-import de.verdox.vpipeline.impl.pipeline.parts.LocalCacheImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,36 +25,29 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.*;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class PipelineImpl implements Pipeline {
-
-    //TODO: Global Pipeline Events sent with messaging service
-
     private final GlobalStorage globalStorage;
     private final GlobalCache globalCache;
     private final LocalCache localCache;
     private final SynchronizingService synchronizingService;
-    private final ExecutorService executorService;
     private final PipelineSynchronizerImpl pipelineSynchronizer;
     private final DataRegistryImpl dataRegistry;
-
     private NetworkParticipant networkParticipant;
     private boolean ready;
+    private final NetworkDataLockingService networkDataLockingService;
     private final Consumer<GsonBuilder> gsonBuilderConsumer;
 
-    public PipelineImpl(@NotNull ExecutorService executorService, @Nullable GlobalCache globalCache, @Nullable GlobalStorage globalStorage, @Nullable SynchronizingService synchronizingService, @Nullable Consumer<GsonBuilder> gsonBuilderConsumer) {
-        Objects.requireNonNull(executorService);
+    public PipelineImpl(@NotNull LocalCache localCache, @NotNull NetworkDataLockingService networkDataLockingService, @Nullable GlobalCache globalCache, @Nullable GlobalStorage globalStorage, @Nullable SynchronizingService synchronizingService, @Nullable Consumer<GsonBuilder> gsonBuilderConsumer) {
+        this.networkDataLockingService = networkDataLockingService;
         this.gsonBuilderConsumer = gsonBuilderConsumer;
-        this.executorService = executorService;
         this.globalStorage = globalStorage;
         this.globalCache = globalCache;
-        this.localCache = new LocalCacheImpl();
+        this.localCache = localCache;
         this.synchronizingService = synchronizingService;
-        /*        this.executorService = Executors.newScheduledThreadPool(2, new DefaultThreadFactory("VPipeline-ThreadPool"));*/
         this.pipelineSynchronizer = new PipelineSynchronizerImpl(this);
         this.dataRegistry = new DataRegistryImpl(this);
 
@@ -113,6 +106,11 @@ public class PipelineImpl implements Pipeline {
     }
 
     @Override
+    public @NotNull NetworkDataLockingService getNetworkDataLockingService() {
+        return networkDataLockingService;
+    }
+
+    @Override
     public @NotNull DataRegistry getDataRegistry() {
         return dataRegistry;
     }
@@ -120,8 +118,7 @@ public class PipelineImpl implements Pipeline {
     @Override
     public @NotNull GsonBuilder getGsonBuilder() {
         var builder = new GsonBuilder()
-                .serializeNulls()
-                .registerTypeHierarchyAdapter(DataReference.class, new DataReference.ReferenceAdapter(this));
+                .serializeNulls();
         if (gsonBuilderConsumer != null)
             gsonBuilderConsumer.accept(builder);
         return builder;
@@ -145,161 +142,135 @@ public class PipelineImpl implements Pipeline {
     }
 
     @Override
-    public <T extends IPipelineData> @Nullable CompletableFuture<PipelineLock<T>> load(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid, @Nullable Consumer<@NotNull T> loadCallback) {
+    public <T extends IPipelineData> @Nullable DataAccess<T> load(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
         Objects.requireNonNull(uuid, "uuid can't be null");
         if (!getDataRegistry().isTypeRegistered(dataClass))
             throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
 
-        var future = new CompletableFuture<PipelineLock<T>>();
-        executePipelineTask(future, () -> {
-            var pipelineLock = createPipelineLock(dataClass, uuid);
-            if (loadCallback == null) {
-                pipelineLock.runOnReadLock(() -> {
-                    var loadedData = load(dataClass, uuid, false);
-                    if (loadedData == null)
-                        future.cancel(true);
-                });
-            } else {
-                pipelineLock.runOnWriteLock(() -> {
-                    var loadedData = load(dataClass, uuid, false);
-                    if (loadedData == null)
-                        future.cancel(true);
-                    else {
-                        loadCallback.accept(loadedData);
-                        pipelineSynchronizer.doSync(loadedData, true, () -> {
-                        });
-                    }
-                });
-            }
-
-            future.complete((PipelineLock<T>) pipelineLock);
-            return null;
-        });
-        return future.orTimeout(10, TimeUnit.SECONDS);
+        Lock readLock = getNetworkDataLockingService().getReadLock(dataClass, uuid);
+        readLock.lock();
+        try {
+            T data = tryLoad(dataClass, uuid);
+            if (data == null)
+                return null;
+            return createAccess(data);
+        } finally {
+            readLock.unlock();
+        }
     }
 
     @Override
-    public @NotNull <T extends IPipelineData> CompletableFuture<PipelineLock<T>> loadOrCreate(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid, @Nullable Consumer<T> loadCallback) {
+    public @NotNull <T extends IPipelineData> DataAccess<T> loadOrCreate(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid, @Nullable Consumer<T> immediateWriteOperation) {
         Objects.requireNonNull(dataClass, "dataClass can't be null");
         Objects.requireNonNull(uuid, "uuid can't be null");
         if (!getDataRegistry().isTypeRegistered(dataClass))
             throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
 
-        var future = new CompletableFuture<PipelineLock<T>>();
-        executePipelineTask(future, () -> {
-            try {
-                var pipelineLock = createPipelineLock(dataClass, uuid);
-                pipelineLock.runOnWriteLock(() -> {
-                    var loadedData = load(dataClass, uuid, true);
-                    if (loadedData != null && loadCallback != null) {
-                        loadCallback.accept(loadedData);
-                        pipelineSynchronizer.doSync(loadedData, true, () -> {
-                        });
-                    }
-                });
-                future.complete((PipelineLock<T>) pipelineLock);
-            } catch (Throwable e) {
-                e.printStackTrace();
-                future.completeExceptionally(e);
-            }
-            return null;
-        });
-        return future.orTimeout(10, TimeUnit.SECONDS);
-    }
+        //First we try to load
+        DataAccess<T> access = load(dataClass, uuid);
+        if (access != null)
+            return access;
 
-    @Override
-    public @NotNull <T extends IPipelineData> CompletableFuture<Set<DataReference<T>>> loadAllData(@NotNull Class<? extends T> dataClass) {
-        Objects.requireNonNull(dataClass, "dataClass can't be null");
-        if (!getDataRegistry().isTypeRegistered(dataClass))
-            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
+        // If no data was found we want to create new data. We have to trigger a load again but this time in write mode.
+        // We need to do the load again since someone could have created the data between the read call and this call.
+        // Nonetheless, this approach is preferred since the alternative is to always do the loadOrCreate with a write lock which is not preferable performance wise.
+        Lock writeLock = getNetworkDataLockingService().getWriteLock(dataClass, uuid);
+        writeLock.lock();
 
-        var future = new CompletableFuture<Set<DataReference<T>>>();
-        executePipelineTask(future, () -> {
-            //Syncing data
-            if (getGlobalStorage() != null && AnnotationResolver.getDataProperties(dataClass).dataContext()
-                                                                .isStorageAllowed()) {
-                getGlobalStorage()
-                        .getSavedUUIDs(dataClass)
-                        .parallelStream()
-                        .forEach(uuid -> {
-                            var pipelineLock = createPipelineLock(dataClass, uuid);
-                            pipelineLock.runOnWriteLock(() -> {
-                                if (!localCache.dataExist(dataClass, uuid))
-                                    pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
-                            });
-                        });
-
-            }
-            if (getGlobalCache() != null && AnnotationResolver.getDataProperties(dataClass).dataContext()
-                                                              .isCacheAllowed()) {
-                getGlobalCache()
-                        .getSavedUUIDs(dataClass)
-                        .parallelStream()
-                        .forEach(uuid -> {
-                            var pipelineLock = createPipelineLock(dataClass, uuid);
-                            pipelineLock.runOnWriteLock(() -> {
-                                if (!localCache.dataExist(dataClass, uuid))
-                                    pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, null);
-                            });
-                        });
-            }
-
-            var set = new HashSet<DataReference<T>>();
-            for (UUID savedUUID : getLocalCache().getSavedUUIDs(dataClass))
-                set.add(createDataReference(dataClass, savedUUID));
-            future.complete(set);
-            return future;
-        });
-        return future.orTimeout(10, TimeUnit.SECONDS);
-    }
-
-    @Override
-    public <T extends IPipelineData> CompletableFuture<Boolean> exist(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
-        Objects.requireNonNull(dataClass, "dataClass can't be null");
-        Objects.requireNonNull(uuid, "uuid can't be null");
-        if (!getDataRegistry().isTypeRegistered(dataClass))
-            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
-        var future = new CompletableFuture<Boolean>();
-        executePipelineTask(future, () -> {
-            createPipelineLock(dataClass, uuid).runOnReadLock(() -> future.complete(checkExistence(dataClass, uuid)));
-            return null;
-        });
-        return future.orTimeout(10, TimeUnit.SECONDS);
-    }
-
-    @Override
-    public <T extends IPipelineData> CompletableFuture<Boolean> delete(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
-        if (!getDataRegistry().isTypeRegistered(dataClass))
-            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
-
-        var future = new CompletableFuture<Boolean>();
-        executePipelineTask(future, () -> {
-            createPipelineLock(dataClass, uuid).runOnWriteLock(() -> {
-                var deleted = getLocalCache().remove(dataClass, uuid);
-
-                if (getSynchronizingService() != null) {
-                    getSynchronizingService()
-                            .getOrCreate(this, dataClass)
-                            .pushRemoval(uuid, () -> {
-                            });
-                }
-
-                if (getGlobalCache() != null && getGlobalCache().dataExist(dataClass, uuid))
-                    deleted &= getGlobalCache().remove(dataClass, uuid);
-                if (getGlobalStorage() != null && getGlobalStorage().dataExist(dataClass, uuid))
-                    deleted &= getGlobalStorage().remove(dataClass, uuid);
-
-                future.complete(deleted);
+        try {
+            T loadedData = tryLoad(dataClass, uuid);
+            if (loadedData == null) {
                 if (AnnotationResolver.getDataProperties(dataClass).debugMode())
-                    NetworkLogger.debug("Deleted: " + dataClass + " with " + uuid);
-            });
-            return null;
-        });
-        return future.orTimeout(10, TimeUnit.SECONDS);
+                    NetworkLogger.debug("Creating new " + dataClass.getSimpleName() + " [" + uuid + "]");
+                loadedData = createNewData(dataClass, uuid, immediateWriteOperation);
+                if (immediateWriteOperation != null)
+                    immediateWriteOperation.accept(loadedData);
+            }
+            return createAccess(loadedData);
+        } finally {
+            writeLock.unlock();
+        }
     }
 
-    private <T extends IPipelineData> T load(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid, boolean createIfNotExist) {
+    @Override
+    public <T extends IPipelineData> Set<DataAccess<? extends T>> loadAllData(@NotNull Class<? extends T> dataClass) {
+        Objects.requireNonNull(dataClass, "dataClass can't be null");
+        if (!getDataRegistry().isTypeRegistered(dataClass))
+            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
+
+
+        //Syncing data from storage to local cache
+        if (getGlobalStorage() != null && AnnotationResolver.getDataProperties(dataClass).dataContext()
+                .isStorageAllowed()) {
+            getGlobalStorage()
+                    .getSavedUUIDs(dataClass)
+                    .parallelStream()
+                    .forEach(uuid -> {
+                        if (!localCache.dataExist(dataClass, uuid))
+                            pipelineSynchronizer.synchronizePipelineData(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid);
+                    });
+
+        }
+
+        //Syncing data from global cache to local cache
+        if (getGlobalCache() != null && AnnotationResolver.getDataProperties(dataClass).dataContext()
+                .isCacheAllowed()) {
+            getGlobalCache()
+                    .getSavedUUIDs(dataClass)
+                    .parallelStream()
+                    .forEach(uuid -> {
+                        if (!localCache.dataExist(dataClass, uuid))
+                            pipelineSynchronizer.synchronizePipelineData(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid);
+                    });
+        }
+        return getLocalCache().loadAllData(dataClass).stream().map(this::createAccess).collect(Collectors.toSet());
+    }
+
+    @Override
+    public <T extends IPipelineData> boolean exist(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
+        Objects.requireNonNull(dataClass, "dataClass can't be null");
+        Objects.requireNonNull(uuid, "uuid can't be null");
+        if (!getDataRegistry().isTypeRegistered(dataClass))
+            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
+        Lock lock = getNetworkDataLockingService().getReadLock(dataClass, uuid);
+        lock.lock();
+        try {
+            return checkExistence(dataClass, uuid);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public <T extends IPipelineData> boolean delete(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
+        if (!getDataRegistry().isTypeRegistered(dataClass))
+            throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
+        Lock lock = getNetworkDataLockingService().getWriteLock(dataClass, uuid);
+        lock.lock();
+
+        try {
+            var deleted = getLocalCache().remove(dataClass, uuid);
+            if (getSynchronizingService() != null) {
+                getSynchronizingService()
+                        .getOrCreate(this, dataClass)
+                        .pushRemoval(uuid);
+            }
+
+            if (getGlobalCache() != null && getGlobalCache().dataExist(dataClass, uuid))
+                deleted &= getGlobalCache().remove(dataClass, uuid);
+            if (getGlobalStorage() != null && getGlobalStorage().dataExist(dataClass, uuid))
+                deleted &= getGlobalStorage().remove(dataClass, uuid);
+
+            if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                NetworkLogger.debug("Deleted: " + dataClass + " with " + uuid);
+            return deleted;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private <T extends IPipelineData> T tryLoad(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         if (!getDataRegistry().isTypeRegistered(dataClass))
             throw new IllegalStateException("dataclass " + dataClass.getSimpleName() + " not registered in pipeline data registry");
         if (localCache.dataExist(dataClass, uuid)) {
@@ -307,28 +278,20 @@ public class PipelineImpl implements Pipeline {
         } else if (globalCache != null && globalCache.dataExist(dataClass, uuid) && AnnotationResolver
                 .getDataProperties(dataClass)
                 .dataContext()
-                .isCacheAllowed())
-            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, () -> {
-                if (AnnotationResolver.getDataProperties(dataClass).debugMode())
-                    NetworkLogger
-                            .debug("CACHE -> Local | " + dataClass + " [" + uuid + "]");
-            });
-        else if (globalStorage != null && globalStorage.dataExist(dataClass, uuid) && AnnotationResolver
+                .isCacheAllowed()) {
+            pipelineSynchronizer.synchronizePipelineData(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid);
+            if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+                NetworkLogger.debug("CACHE -> Local | " + dataClass + " [" + uuid + "]");
+        } else if (globalStorage != null && globalStorage.dataExist(dataClass, uuid) && AnnotationResolver
                 .getDataProperties(dataClass)
                 .dataContext()
-                .isStorageAllowed())
-            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid, () -> {
-                if (AnnotationResolver.getDataProperties(dataClass).debugMode())
-                    NetworkLogger
-                            .debug("GLOBAL -> Local | " + dataClass.getSimpleName() + " [" + uuid + "]");
-            });
-        else {
-            if (!createIfNotExist)
-                return null;
+                .isStorageAllowed()) {
+            pipelineSynchronizer.synchronizePipelineData(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid);
             if (AnnotationResolver.getDataProperties(dataClass).debugMode())
-                NetworkLogger.debug("Creating new " + dataClass.getSimpleName() + " [" + uuid + "]");
-            return createNewData(dataClass, uuid);
-        }
+                NetworkLogger
+                        .debug("GLOBAL -> Local | " + dataClass.getSimpleName() + " [" + uuid + "]");
+        } else
+            return null;
         return localCache.loadObject(dataClass, uuid);
     }
 
@@ -354,8 +317,8 @@ public class PipelineImpl implements Pipeline {
 /*        if (data.isMarkedForRemoval())
             return;*/
         data.cleanUp();
-        pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, type, uuid, null);
-        pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, type, uuid, null);
+        pipelineSynchronizer.synchronizePipelineData(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, type, uuid);
+        pipelineSynchronizer.synchronizePipelineData(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, type, uuid);
         getLocalCache().remove(type, uuid);
     }
 
@@ -372,7 +335,7 @@ public class PipelineImpl implements Pipeline {
             globalCache
                     .getSavedUUIDs(type)
                     .forEach(uuid -> {
-                        if (pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid, null))
+                        if (pipelineSynchronizer.synchronizePipelineData(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid))
                             alreadyLoaded.add(uuid);
                     });
         if (globalStorage != null && dataProperties
@@ -382,41 +345,42 @@ public class PipelineImpl implements Pipeline {
                     .getSavedUUIDs(type)
                     .stream()
                     .filter(uuid -> !alreadyLoaded.contains(uuid))
-                    .forEach(uuid -> pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid, null));
+                    .forEach(uuid -> pipelineSynchronizer.synchronizePipelineData(PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, PipelineSynchronizer.DataSourceType.LOCAL, type, uuid));
     }
 
-    private <T extends IPipelineData> T createNewData(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
+    private <T extends IPipelineData> T createNewData(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid, @Nullable Consumer<T> immediateWriteOperation) {
         Objects.requireNonNull(dataClass, "Dataclass can't be null");
         Objects.requireNonNull(uuid, "UUID can't be null");
         if (AnnotationResolver.getDataProperties(dataClass).debugMode())
             NetworkLogger
                     .debug("[Pipeline] Creating new data of type: " + dataClass.getSimpleName() + " [" + uuid + "]");
+
+
         T pipelineData = localCache.instantiateData(dataClass, uuid);
         pipelineData.loadDependentData();
         pipelineData.onCreate();
+        if (immediateWriteOperation != null)
+            immediateWriteOperation.accept(pipelineData);
         localCache.saveObject(pipelineData);
 
         if (AnnotationResolver
                 .getDataProperties(dataClass)
                 .dataContext()
                 .isCacheAllowed())
-            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, dataClass, uuid, null);
+            pipelineSynchronizer.synchronizePipelineData(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, dataClass, uuid);
         if (AnnotationResolver
                 .getDataProperties(dataClass)
                 .dataContext()
                 .isStorageAllowed())
-            pipelineSynchronizer.doSynchronize(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, dataClass, uuid, null);
+            pipelineSynchronizer.synchronizePipelineData(PipelineSynchronizer.DataSourceType.LOCAL, PipelineSynchronizer.DataSourceType.GLOBAL_STORAGE, dataClass, uuid);
 
         if (getSynchronizingService() != null)
             getSynchronizingService()
                     .getOrCreate(this, dataClass)
-                    .pushCreation(pipelineData, null);
+                    .pushCreation(pipelineData);
 
         return pipelineData;
-    }
 
-    public ExecutorService getExecutorService() {
-        return executorService;
     }
 
     @Override
@@ -445,101 +409,23 @@ public class PipelineImpl implements Pipeline {
         NetworkLogger.info("Pipeline offline");
     }
 
-    private void executePipelineTask(CompletableFuture<?> future, Callable<?> callable) {
-        if (executorService.isShutdown() || executorService.isTerminated()) {
-            var e = new IllegalStateException("ExecutorService was shutted down.");
-            e.printStackTrace();
-            future.completeExceptionally(e);
-            throw e;
-        }
-        if (!ready)
-            future.cancel(true);
-        else
-            executorService.submit(() -> {
-                try {
-                    callable.call();
-                } catch (Throwable e) {
-                    future.completeExceptionally(e);
-                    e.printStackTrace();
-                    throw new RuntimeException(e);
-                }
-            });
-    }
-
-    <T extends IPipelineData> PipelineLock<T> createPipelineLock(@NotNull T data) {
-        return (PipelineLock<T>) createPipelineLock(data.getClass(), data.getObjectUUID());
-    }
-
-
     @Override
-    public <T extends IPipelineData> @NotNull PipelineLock<T> createPipelineLock(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
-        Objects.requireNonNull(dataClass, "Dataclass can't be null");
-        Objects.requireNonNull(uuid, "UUID can't be null");
-
-        Lock readLock;
-        Lock writeLock;
-
-        if (getGlobalCache() != null) {
-            readLock = getGlobalCache().acquireGlobalObjectReadLock(dataClass, uuid);
-            writeLock = getGlobalCache().acquireGlobalObjectWriteLock(dataClass, uuid);
-            Objects.requireNonNull(readLock, "GlobalCache is enabled but does not have a global read lock. Please inform the dev of this Cache implementation");
-            Objects.requireNonNull(writeLock, "GlobalCache is enabled but does not have a global write lock. Please inform the dev of this Cache implementation");
-        } else {
-            //TODO: Reentrant Locks für einzelne Datenklassen und UUIds die auch wieder gelöscht werden onDelete. So gibt es wenigstens lokale locks.
-            readLock = new DummyLock();
-            writeLock = new DummyLock();
-        }
-        return new PipelineLockImpl<>(this, pipelineSynchronizer, dataClass, uuid, readLock, writeLock);
+    public <T extends IPipelineData> boolean saveAndRemoveFromLocalCache(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
+        pipelineSynchronizer.sync(dataClass, uuid, true);
+        return getLocalCache().remove(dataClass, uuid);
     }
 
     @Override
-    public @NotNull <T extends IPipelineData> DataReference<T> createDataReference(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
-        return DataReference.of(this, dataClass, uuid);
+    public <T extends IPipelineData> void subscribe(@NotNull Class<? extends T> type, @NotNull UUID uuid, DataSubscriber<T, ?> subscriber) {
+        getLocalCache().subscribe(type, uuid, subscriber);
     }
 
     @Override
-    public <T extends IPipelineData> CompletableFuture<Boolean> saveAndRemoveFromLocalCache(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
-        var future = new CompletableFuture<Boolean>();
-        executePipelineTask(future, () -> {
-            createPipelineLock(dataClass, uuid).runOnWriteLock(() -> {
-                pipelineSynchronizer.doSync(dataClass, uuid, true, () -> future.complete(getLocalCache().remove(dataClass, uuid)));
-            });
-            return null;
-        });
-        return future;
+    public <T extends IPipelineData> void removeSubscriber(DataSubscriber<T, ?> subscriber) {
+        getLocalCache().removeSubscriber(subscriber);
     }
 
-    static class DummyLock implements Lock {
-
-        @Override
-        public void lock() {
-
-        }
-
-        @Override
-        public void lockInterruptibly() throws InterruptedException {
-
-        }
-
-        @Override
-        public boolean tryLock() {
-            return false;
-        }
-
-        @Override
-        public boolean tryLock(long time, @NotNull TimeUnit unit) throws InterruptedException {
-            return false;
-        }
-
-        @Override
-        public void unlock() {
-
-        }
-
-        @NotNull
-        @Override
-        public Condition newCondition() {
-            return null;
-        }
+    private <T extends IPipelineData> DataAccess<T> createAccess(@NotNull T data) {
+        return getLocalCache().createAccess((Class<? extends T>) data.getClass(), data.getObjectUUID());
     }
 }

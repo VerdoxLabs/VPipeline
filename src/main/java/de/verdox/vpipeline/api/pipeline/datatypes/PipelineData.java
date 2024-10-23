@@ -7,7 +7,6 @@ import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
-import de.verdox.vpipeline.impl.util.CallbackUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.InvocationTargetException;
@@ -18,9 +17,8 @@ import java.util.concurrent.TimeUnit;
 
 @PipelineDataProperties
 public abstract class PipelineData implements IPipelineData {
-
     private final UUID objectUUID;
-    private transient final Synchronizer synchronizer;
+    private transient final DataSynchronizer dataSynchronizer;
     private transient final long cleanTime;
     private transient final TimeUnit cleanTimeUnit;
     private transient long lastUse = System.currentTimeMillis();
@@ -38,9 +36,9 @@ public abstract class PipelineData implements IPipelineData {
 
         this.objectUUID = objectUUID;
         if (pipeline.getSynchronizingService() != null)
-            this.synchronizer = pipeline.getSynchronizingService().getOrCreate(pipeline, this);
+            this.dataSynchronizer = pipeline.getSynchronizingService().getOrCreate(pipeline, this);
         else
-            this.synchronizer = new DummyDataSynchronizer();
+            this.dataSynchronizer = new DummyDataDataSynchronizer();
         PipelineDataProperties dataProperties = AnnotationResolver.getDataProperties(getClass());
         this.cleanTime = dataProperties.time();
         this.cleanTimeUnit = dataProperties.timeUnit();
@@ -53,28 +51,31 @@ public abstract class PipelineData implements IPipelineData {
 
     @Override
     public JsonElement serialize() {
-        return attachedPipeline.getGson().toJsonTree(this);
+        try {
+            return attachedPipeline.getGson().toJsonTree(this);
+        } catch (Throwable e) {
+            NetworkLogger.warning("Error while serializing " + getObjectUUID() + " | " + getClass().getSimpleName());
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
-    public String deserialize(JsonElement jsonObject) {
-        if (AnnotationResolver.getDataProperties(getClass()).debugMode())
-            NetworkLogger.debug("Updating " + this);
-        var data = attachedPipeline.getGson().fromJson(jsonObject, getClass());
-        return attachedPipeline.getGson().toJson(jsonObject);
+    public void deserialize(JsonElement jsonObject) {
+        try {
+            if (AnnotationResolver.getDataProperties(getClass()).debugMode())
+                NetworkLogger.debug("Updating " + this);
+            attachedPipeline.getGson().fromJson(jsonObject, getClass());
+        } catch (Throwable e) {
+            NetworkLogger.warning("Error while deserializing " + getObjectUUID() + " | " + getClass().getSimpleName());
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
-    public String deserialize(String jsonString) {
-        if (AnnotationResolver.getDataProperties(getClass()).debugMode())
-            NetworkLogger.debug("Updating " + this);
-        attachedPipeline.getGson().fromJson(jsonString, getClass());
-        return attachedPipeline.getGson().toJson(jsonString);
-    }
-
-    @Override
-    public @NotNull Synchronizer getSynchronizer() {
-        return synchronizer;
+    public @NotNull DataSynchronizer getSynchronizer() {
+        return dataSynchronizer;
     }
 
     @Override
@@ -83,10 +84,9 @@ public abstract class PipelineData implements IPipelineData {
     }
 
     @Override
-    public CompletableFuture<Void> save(boolean saveToStorage) {
+    public void save(boolean saveToStorage) {
         updateLastUsage();
-        //TODO: Completable Future
-        return attachedPipeline.getAttachedPipeline().getPipelineSynchronizer().sync(this, saveToStorage);
+        attachedPipeline.getAttachedPipeline().getPipelineSynchronizer().sync(this, saveToStorage);
     }
 
     public static <S extends IPipelineData> S instantiateData(@NotNull Pipeline pipeline, @NotNull Class<? extends S> dataClass, @NotNull UUID objectUUID) {
@@ -108,7 +108,7 @@ public abstract class PipelineData implements IPipelineData {
         return attachedPipeline;
     }
 
-    static class DummyDataSynchronizer implements Synchronizer {
+    class DummyDataDataSynchronizer implements DataSynchronizer {
 
         @Override
         public void shutdown() {
@@ -121,21 +121,28 @@ public abstract class PipelineData implements IPipelineData {
         }
 
         @Override
-        public void pushUpdate(@NotNull IPipelineData data, Runnable callback) {
-            NetworkLogger.getLogger()
-                         .warning("[" + data.getAttachedPipeline().getAttachedPipeline().getNetworkParticipant()
-                                            .getIdentifier() + "] Syncing with dummy data synchronizer");
-            CallbackUtil.runIfNotNull(callback);
+        public void pushUpdate(@NotNull IPipelineData data) {
+            NetworkLogger.debug("[" + data.getAttachedPipeline().getAttachedPipeline().getNetworkParticipant().getIdentifier() + "] Syncing with dummy data synchronizer");
         }
 
         @Override
-        public void pushRemoval(@NotNull UUID uuid, Runnable callback) {
-            CallbackUtil.runIfNotNull(callback);
+        public int sendDataBlockToNetwork(DataBlock dataBlock) {
+            return 0;
         }
 
         @Override
-        public void pushCreation(@NotNull IPipelineData data, Runnable callback) {
+        public AttachedPipeline getAttachedPipeline() {
+            return getAttachedPipeline();
+        }
 
+        @Override
+        public UUID getSynchronizerUUID() {
+            return UUID.randomUUID();
+        }
+
+        @Override
+        public Class<? extends IPipelineData> getSynchronizingType() {
+            return PipelineData.this.getClass();
         }
     }
 }
