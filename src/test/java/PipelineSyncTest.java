@@ -318,7 +318,90 @@ public class PipelineSyncTest {
         DataAccess<TestData> access = pipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 1);
 
         AtomicInteger container = new AtomicInteger(0);
-        access.subscribe(DataSubscriber.observeNumber(testData -> testData.testInt, container::set));
+        access.subscribe(DataSubscriber.observeNumber(testData -> testData.testInt, container::set, 0));
+
+        DataAccess<TestData> remoteAccess = remotePipeline.loadOrCreate(TestData.class, uuid);
+        try (LockableAction.Write<TestData> write = remoteAccess.write()) {
+            TestData testData = write.get();
+            testData.testInt += 1;
+        } catch (AccessInvalidException e) {
+            throw new RuntimeException(e);
+        }
+        Thread.sleep(50);
+
+        Assertions.assertEquals(2, container.get());
+    }
+
+    @Test
+    public void testSubscriberNotifiedWhenCreatedBeforeDataExists() throws InterruptedException {
+        AtomicInteger container = new AtomicInteger(0);
+        UUID uuid = UUID.randomUUID();
+
+        pipeline.subscribe(TestData.class, uuid, DataSubscriber.observeNumber(testData -> testData.testInt, container::set, 0));
+
+        pipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 1);
+        DataAccess<TestData> remoteAccess = remotePipeline.loadOrCreate(TestData.class, uuid);
+        try (LockableAction.Write<TestData> write = remoteAccess.write()) {
+            TestData testData = write.get();
+            testData.testInt += 1;
+        } catch (AccessInvalidException e) {
+            throw new RuntimeException(e);
+        }
+        Thread.sleep(50);
+
+        Assertions.assertEquals(2, container.get());
+    }
+
+    @Test
+    public void testSubscriberDeletedAndNotNotified() throws InterruptedException {
+        AtomicInteger container = new AtomicInteger(0);
+        UUID uuid = UUID.randomUUID();
+        DataSubscriber<TestData, Integer> dataSubscriber = DataSubscriber.observeNumber(testData -> testData.testInt, container::set, 0);
+        pipeline.subscribe(TestData.class, uuid, dataSubscriber);
+        pipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 1);
+        pipeline.removeSubscriber(dataSubscriber);
+
+        DataAccess<TestData> remoteAccess = remotePipeline.loadOrCreate(TestData.class, uuid);
+        try (LockableAction.Write<TestData> write = remoteAccess.write()) {
+            TestData testData = write.get();
+            testData.testInt += 1;
+        } catch (AccessInvalidException e) {
+            throw new RuntimeException(e);
+        }
+        Thread.sleep(50);
+
+        Assertions.assertEquals(1, container.get());
+    }
+
+    @Test
+    public void testRemoteSubscribersGettingValues1() throws InterruptedException {
+        AtomicInteger container = new AtomicInteger(0);
+        UUID uuid = UUID.randomUUID();
+        DataSubscriber<TestData, Integer> dataSubscriber = DataSubscriber.observeNumber(testData -> testData.testInt, container::set, 0);
+
+        remotePipeline.subscribe(TestData.class, uuid, dataSubscriber);
+        pipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 1);
+
+        DataAccess<TestData> remoteAccess = remotePipeline.loadOrCreate(TestData.class, uuid);
+        try (LockableAction.Write<TestData> write = remoteAccess.write()) {
+            TestData testData = write.get();
+            testData.testInt += 1;
+        } catch (AccessInvalidException e) {
+            throw new RuntimeException(e);
+        }
+        Thread.sleep(50);
+
+        Assertions.assertEquals(2, container.get());
+    }
+
+    @Test
+    public void testRemoteSubscribersGettingValues2() throws InterruptedException {
+        AtomicInteger container = new AtomicInteger(0);
+        UUID uuid = UUID.randomUUID();
+        DataSubscriber<TestData, Integer> dataSubscriber = DataSubscriber.observeNumber(testData -> testData.testInt, container::set, 0);
+
+        pipeline.loadOrCreate(TestData.class, uuid, testData -> testData.testInt = 1);
+        remotePipeline.subscribe(TestData.class, uuid, dataSubscriber);
 
         DataAccess<TestData> remoteAccess = remotePipeline.loadOrCreate(TestData.class, uuid);
         try (LockableAction.Write<TestData> write = remoteAccess.write()) {

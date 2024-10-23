@@ -22,10 +22,11 @@ public class MessagingServiceBuilderImpl implements MessagingServiceBuilder {
     }
 
     @Override
-    public MessagingServiceBuilder useRedisTransmitter(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
-        this.transmitter = new RedisTransmitter(new RedisConnection(clusterMode, addressArray, redisPassword));
+    public MessagingServiceBuilder withTransmitter(Transmitter transmitter) {
+        this.transmitter = transmitter;
         return this;
     }
+
 
     @Override
     public MessagingService buildMessagingService() {

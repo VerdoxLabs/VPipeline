@@ -15,6 +15,7 @@ import de.verdox.vpipeline.api.pipeline.enums.PreloadStrategy;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vpipeline.api.pipeline.parts.LocalCache;
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataSubscriber;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import de.verdox.vpipeline.impl.pipeline.datatypes.DataRegistryImpl;
 import org.jetbrains.annotations.NotNull;
@@ -168,7 +169,7 @@ public class PipelineImpl implements Pipeline {
 
         //First we try to load
         DataAccess<T> access = load(dataClass, uuid);
-        if(access != null)
+        if (access != null)
             return access;
 
         // If no data was found we want to create new data. We have to trigger a load again but this time in write mode.
@@ -179,7 +180,7 @@ public class PipelineImpl implements Pipeline {
 
         try {
             T loadedData = tryLoad(dataClass, uuid);
-            if(loadedData == null){
+            if (loadedData == null) {
                 if (AnnotationResolver.getDataProperties(dataClass).debugMode())
                     NetworkLogger.debug("Creating new " + dataClass.getSimpleName() + " [" + uuid + "]");
                 loadedData = createNewData(dataClass, uuid, immediateWriteOperation);
@@ -281,8 +282,7 @@ public class PipelineImpl implements Pipeline {
             pipelineSynchronizer.synchronizePipelineData(PipelineSynchronizer.DataSourceType.GLOBAL_CACHE, PipelineSynchronizer.DataSourceType.LOCAL, dataClass, uuid);
             if (AnnotationResolver.getDataProperties(dataClass).debugMode())
                 NetworkLogger.debug("CACHE -> Local | " + dataClass + " [" + uuid + "]");
-        }
-        else if (globalStorage != null && globalStorage.dataExist(dataClass, uuid) && AnnotationResolver
+        } else if (globalStorage != null && globalStorage.dataExist(dataClass, uuid) && AnnotationResolver
                 .getDataProperties(dataClass)
                 .dataContext()
                 .isStorageAllowed()) {
@@ -290,8 +290,7 @@ public class PipelineImpl implements Pipeline {
             if (AnnotationResolver.getDataProperties(dataClass).debugMode())
                 NetworkLogger
                         .debug("GLOBAL -> Local | " + dataClass.getSimpleName() + " [" + uuid + "]");
-        }
-        else
+        } else
             return null;
         return localCache.loadObject(dataClass, uuid);
     }
@@ -414,6 +413,16 @@ public class PipelineImpl implements Pipeline {
     public <T extends IPipelineData> boolean saveAndRemoveFromLocalCache(@NotNull Class<? extends T> dataClass, @NotNull UUID uuid) {
         pipelineSynchronizer.sync(dataClass, uuid, true);
         return getLocalCache().remove(dataClass, uuid);
+    }
+
+    @Override
+    public <T extends IPipelineData> void subscribe(@NotNull Class<? extends T> type, @NotNull UUID uuid, DataSubscriber<T, ?> subscriber) {
+        getLocalCache().subscribe(type, uuid, subscriber);
+    }
+
+    @Override
+    public <T extends IPipelineData> void removeSubscriber(DataSubscriber<T, ?> subscriber) {
+        getLocalCache().removeSubscriber(subscriber);
     }
 
     private <T extends IPipelineData> DataAccess<T> createAccess(@NotNull T data) {

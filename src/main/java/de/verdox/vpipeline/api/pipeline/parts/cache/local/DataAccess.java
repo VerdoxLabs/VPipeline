@@ -3,10 +3,7 @@ package de.verdox.vpipeline.api.pipeline.parts.cache.local;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.LocalCache;
 
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.locks.Lock;
 
 /**
@@ -20,7 +17,6 @@ public class DataAccess<T extends IPipelineData> {
     private final UUID objectUUID;
     private final Lock readLock;
     private final Lock writeLock;
-    private final Set<DataSubscriber<T, ?>> subscribers = new HashSet<>();
 
     DataAccess(LocalCache localCache, Class<? extends T> type, UUID objectUUID, Lock readLock, Lock writeLock) {
         this.localCache = localCache;
@@ -31,19 +27,12 @@ public class DataAccess<T extends IPipelineData> {
     }
 
     public DataAccess<T> subscribe(DataSubscriber<T, ?> subscriber) {
-        subscribers.add(subscriber);
-        try (var read = read()) {
-            subscriber.update(read.get());
-        } catch (AccessInvalidException e) {
-            throw new RuntimeException(e);
-        }
+        localCache.subscribe(type, objectUUID, subscriber);
         return this;
     }
 
     public void notifySubscribers(T updatedObject) {
-        for (DataSubscriber<T, ?> subscriber : subscribers) {
-            subscriber.update(updatedObject);
-        }
+        localCache.notifySubscribers(updatedObject);
     }
 
     private boolean killed() {

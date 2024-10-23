@@ -9,6 +9,7 @@ import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vpipeline.api.pipeline.parts.LocalCache;
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataSubscriber;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -166,4 +167,20 @@ public interface Pipeline extends SystemPart {
      * @param <T> the generic data type
      */
     <T extends IPipelineData> boolean saveAndRemoveFromLocalCache(@NotNull Class<? extends T> type, @NotNull UUID uuid);
+
+    /**
+     * Used to create a data subscriber for a particular {@link IPipelineData}.
+     * @param type The data class
+     * @param uuid the uuid of the data
+     * @param subscriber the subscriber
+     * @param <T> the generic data type
+     */
+    <T extends IPipelineData> void subscribe(@NotNull Class<? extends T> type, @NotNull UUID uuid, DataSubscriber<T, ?> subscriber);
+
+    /**
+     * Used to remove a data subscriber of a particular {@link IPipelineData}.
+     * @param subscriber the subscriber
+     * @param <T> the generic data type
+     */
+    <T extends IPipelineData> void removeSubscriber(DataSubscriber<T, ?> subscriber);
 }

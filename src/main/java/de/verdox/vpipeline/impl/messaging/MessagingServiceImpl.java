@@ -15,7 +15,11 @@ import de.verdox.vpipeline.api.messaging.instruction.Instruction;
 import de.verdox.vpipeline.api.messaging.instruction.ResponseCollector;
 import de.verdox.vpipeline.api.messaging.instruction.types.Ping;
 import de.verdox.vpipeline.api.network.RemoteParticipant;
+import de.verdox.vpipeline.api.ticket.TicketPropagator;
 import de.verdox.vpipeline.impl.messaging.event.MessageEventImpl;
+import de.verdox.vpipeline.impl.ticket.TicketIssuanceInstruction;
+import de.verdox.vpipeline.impl.ticket.TicketPropagatorImpl;
+import de.verdox.vpipeline.impl.ticket.TicketTakeInstruction;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -36,6 +40,7 @@ public class MessagingServiceImpl implements MessagingService {
     private final String sessionIdentifier;
     private NetworkParticipant networkParticipant;
     private final ScheduledExecutorService keepAliveThread = Executors.newSingleThreadScheduledExecutor();
+    private final TicketPropagatorImpl ticketPropagator = new TicketPropagatorImpl(this);
 
     public MessagingServiceImpl(String sessionIdentifier, Transmitter transmitter) {
         Objects.requireNonNull(sessionIdentifier);
@@ -44,33 +49,12 @@ public class MessagingServiceImpl implements MessagingService {
         this.transmitter = transmitter;
 
         this.messageFactoryImpl = new MessageFactoryImpl(this);
+        this.messageFactoryImpl.registerInstructionType(9996, TicketTakeInstruction.class, () -> new TicketTakeInstruction(UUID.randomUUID(), UUID.randomUUID()));
+        this.messageFactoryImpl.registerInstructionType(9997, TicketIssuanceInstruction.class, () -> new TicketIssuanceInstruction(UUID.randomUUID(), new byte[0]));
         this.messageFactoryImpl.registerInstructionType(9998, KeepAlivePing.class, () -> new KeepAlivePing(UUID.randomUUID()));
         this.messageFactoryImpl.registerInstructionType(9999, OfflinePing.class, () -> new OfflinePing(UUID.randomUUID()));
-        this.transmitter.setMessagingService(this);
 
         this.eventBus = new EventBus();
-        eventBus.register(this);
-
-        remoteParticipants.put(getSessionUUID(), new RemoteMessageReceiverImpl(getSessionUUID(), sessionIdentifier));
-        sendKeepAlivePing();
-
-        keepAliveThread.scheduleAtFixedRate(() -> {
-            /*            sendKeepAlivePing();*/
-            remoteParticipants
-                    .entrySet()
-                    .removeIf(entry -> !receivedKeepAlivePings.contains(entry.getValue()) && !entry
-                            .getValue()
-                            .getUuid()
-                            .equals(getSessionUUID()));
-            receivedKeepAlivePings.clear();
-            pendingInstructions.forEach((uuid, instruction) -> pendingInstructions.computeIfPresent(uuid, (uuid1, instruction1) -> {
-                if (!instruction1.getResponseCollector().hasReceivedAllAnswers())
-                    return instruction1;
-                if (instruction1.getResponseCollector() instanceof ResponseCollectorImpl<?> responseCollector)
-                    responseCollector.cancel();
-                return null;
-            }));
-        }, 0, 10, TimeUnit.SECONDS);
     }
 
     @Subscribe
@@ -218,6 +202,30 @@ public class MessagingServiceImpl implements MessagingService {
 
     public void setNetworkParticipant(NetworkParticipant networkParticipant) {
         this.networkParticipant = networkParticipant;
+        remoteParticipants.put(getSessionUUID(), new RemoteMessageReceiverImpl(getSessionUUID(), sessionIdentifier));
+
+        this.transmitter.setMessagingService(this);
+        eventBus.register(this);
+
+        keepAliveThread.scheduleAtFixedRate(() -> {
+            /*            sendKeepAlivePing();*/
+            remoteParticipants
+                    .entrySet()
+                    .removeIf(entry -> !receivedKeepAlivePings.contains(entry.getValue()) && !entry
+                            .getValue()
+                            .getUuid()
+                            .equals(getSessionUUID()));
+            receivedKeepAlivePings.clear();
+            pendingInstructions.forEach((uuid, instruction) -> pendingInstructions.computeIfPresent(uuid, (uuid1, instruction1) -> {
+                if (!instruction1.getResponseCollector().hasReceivedAllAnswers())
+                    return instruction1;
+                if (instruction1.getResponseCollector() instanceof ResponseCollectorImpl<?> responseCollector)
+                    responseCollector.cancel();
+                return null;
+            }));
+        }, 0, 10, TimeUnit.SECONDS);
+
+        sendKeepAlivePing();
     }
 
     @Override
@@ -267,6 +275,11 @@ public class MessagingServiceImpl implements MessagingService {
     @Override
     public MessageFactory getMessageFactory() {
         return messageFactoryImpl;
+    }
+
+    @Override
+    public TicketPropagator getTicketPropagator() {
+        return ticketPropagator;
     }
 
     public class KeepAlivePing extends Ping {

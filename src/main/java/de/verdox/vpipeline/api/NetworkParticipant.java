@@ -1,5 +1,6 @@
 package de.verdox.vpipeline.api;
 
+import de.verdox.vpipeline.api.messaging.RemoteMessageReceiver;
 import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.network.RemoteParticipant;
@@ -25,6 +26,10 @@ public interface NetworkParticipant {
     DataAccess<RemoteParticipant> getOnlineNetworkClient(String identifier);
 
     DataAccess<RemoteParticipant> getAsNetworkClient();
+
+    default Set<RemoteMessageReceiver> getRemoteAliveMessagingParticipants(){
+        return messagingService().getRemoteMessageReceivers();
+    }
 
     UUID getUUID();
 

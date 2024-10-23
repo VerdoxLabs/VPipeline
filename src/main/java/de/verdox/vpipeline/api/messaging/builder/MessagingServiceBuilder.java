@@ -1,6 +1,7 @@
 package de.verdox.vpipeline.api.messaging.builder;
 
 import de.verdox.vpipeline.api.messaging.MessagingService;
+import de.verdox.vpipeline.api.messaging.Transmitter;
 import org.jetbrains.annotations.NotNull;
 
 
@@ -16,13 +17,11 @@ public interface MessagingServiceBuilder {
     MessagingServiceBuilder withIdentifier(String identifier);
 
     /**
-     * Used to setup a redis transmitter for messaging
-     * @param clusterMode whether to use redis cluster mode
-     * @param addressArray the addresses of the redis servers
-     * @param redisPassword the redis password
+     * Used to specify the message transmitter to be used
+     * @param transmitter the transmitter
      * @return the builder
      */
-    MessagingServiceBuilder useRedisTransmitter(boolean clusterMode, @NotNull String[] addressArray, String redisPassword);
+    MessagingServiceBuilder withTransmitter(Transmitter transmitter);
 
     /**
      * Used to build the messaging service

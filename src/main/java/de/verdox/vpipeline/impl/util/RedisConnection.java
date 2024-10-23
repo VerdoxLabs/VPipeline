@@ -18,8 +18,14 @@ import java.util.Objects;
 
 public class RedisConnection implements SystemPart {
     protected final RedissonClient redissonClient;
+    private final boolean clusterMode;
+    private final @NotNull String[] addressArray;
+    private final String redisPassword;
 
     public RedisConnection(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
+        this.clusterMode = clusterMode;
+        this.addressArray = addressArray;
+        this.redisPassword = redisPassword;
         Objects.requireNonNull(addressArray, "addressArray can't be null!");
         Objects.requireNonNull(redisPassword, "redisPassword can't be null!");
         if (addressArray.length == 0)
@@ -60,5 +66,17 @@ public class RedisConnection implements SystemPart {
     @Override
     public void shutdown() {
         this.redissonClient.shutdown();
+    }
+
+    public boolean isClusterMode() {
+        return clusterMode;
+    }
+
+    public String[] getAddressArray() {
+        return addressArray;
+    }
+
+    public String getRedisPassword() {
+        return redisPassword;
     }
 }

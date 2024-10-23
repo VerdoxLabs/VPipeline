@@ -8,11 +8,12 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class DummyNetworkDataLockingService implements NetworkDataLockingService {
-    private final Map<String, ReentrantReadWriteLock> localLocks = new HashMap<>();
+    private final Map<String, ReentrantReadWriteLock> localLocks = new ConcurrentHashMap<>();
     @Override
     public <T extends IPipelineData> Lock getReadLock(@NotNull Class<? extends T> type, @NotNull UUID uuid) {
         return localLocks.computeIfAbsent(createLockString(type, uuid), s -> new ReentrantReadWriteLock()).readLock();

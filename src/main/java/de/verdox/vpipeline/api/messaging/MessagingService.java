@@ -3,6 +3,7 @@ package de.verdox.vpipeline.api.messaging;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.messaging.instruction.Instruction;
 import de.verdox.vpipeline.api.messaging.instruction.ResponseCollector;
+import de.verdox.vpipeline.api.ticket.TicketPropagator;
 import de.verdox.vpipeline.impl.messaging.ResponseCollectorImpl;
 import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 import org.jetbrains.annotations.NotNull;
@@ -21,6 +22,7 @@ public interface MessagingService extends SystemPart {
     }
     String getSessionIdentifier();
     MessageFactory getMessageFactory();
+    TicketPropagator getTicketPropagator();
 
     void postMessageEvent(String channel, Instruction<?> instruction);
 

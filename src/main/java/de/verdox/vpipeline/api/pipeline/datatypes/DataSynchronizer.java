@@ -184,6 +184,11 @@ public interface DataSynchronizer extends SystemPart {
 
         @Override
         public void process(@NotNull Class<? extends IPipelineData> dataClass, @NotNull Pipeline pipeline) {
+            // We save the data to local cache when there are data subscribers that wait for values
+            if (pipeline.getLocalCache().hasDataSubscribers(dataClass, dataUUID)) {
+                NetworkLogger.debug("Saving data due to existing subscribers for " + dataClass.getSimpleName() + " [" + dataUUID + "]");
+                pipeline.getLocalCache().save(dataClass, dataUUID, JsonParser.parseString(dataToUpdate));
+            }
             boolean dataExistsLocally = pipeline.getLocalCache().dataExist(dataClass, dataUUID);
             if (!dataExistsLocally)
                 return;

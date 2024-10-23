@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 public class HashedLocalCache implements LocalCache {
     private final Map<Class<? extends IPipelineData>, Map<UUID, IPipelineData>> cache = new HashMap<>();
     private final Map<Class<? extends IPipelineData>, Map<UUID, DataAccess<IPipelineData>>> cachedAccess = new HashMap<>();
+    private final Map<Class<? extends IPipelineData>, Map<UUID, Set<DataSubscriber<? extends IPipelineData, ?>>>> subscribers = new HashMap<>();
     private final AttachedPipeline attachedPipeline;
     private final ReentrantReadWriteLock reentrantReadWriteLock = new ReentrantReadWriteLock();
 
@@ -49,6 +50,7 @@ public class HashedLocalCache implements LocalCache {
             if (dataExist(object.getClass(), object.getObjectUUID()))
                 remove(object.getClass(), object.getObjectUUID());
             cache.computeIfAbsent(object.getClass(), aClass -> new ConcurrentHashMap<>()).put(object.getObjectUUID(), object);
+            notifySubscribers(object);
             object.updateLastUsage();
         } finally {
             reentrantReadWriteLock.writeLock().unlock();
@@ -170,6 +172,45 @@ public class HashedLocalCache implements LocalCache {
         return (DataAccess<S>) cachedAccess.computeIfAbsent(dataClass, aClass -> new ConcurrentHashMap<>()).computeIfAbsent(objectUUID, uuid ->
                 new DataAccess<>(this, dataClass, objectUUID, objectReadLock, objectWriteLock)
         );
+    }
+
+    @Override
+    public <T extends IPipelineData> void subscribe(@NotNull Class<? extends T> dataClass, @NotNull UUID objectUUID, DataSubscriber<T, ?> subscriber) {
+        subscriber.linkToLocalCache(dataClass, objectUUID);
+        T data = loadObject(dataClass, objectUUID);
+        if(data != null)
+            subscriber.update(data);
+        subscribers.computeIfAbsent(dataClass, aClass -> new ConcurrentHashMap<>())
+                .computeIfAbsent(objectUUID, uuid -> new HashSet<>())
+                .add(subscriber);
+    }
+
+    @Override
+    public <T extends IPipelineData> void removeSubscriber(DataSubscriber<T, ?> subscriber) {
+        if(subscriber.getDataClass() == null || subscriber.getObjectUUID() == null)
+            return;
+        if(!subscribers.containsKey(subscriber.getDataClass()) || !subscribers.get(subscriber.getDataClass()).containsKey(subscriber.getObjectUUID()))
+            return;
+        subscribers.get(subscriber.getDataClass()).get(subscriber.getObjectUUID()).remove(subscriber);
+        subscriber.unlinkFromLocalCache();
+    }
+
+    @Override
+    public <T extends IPipelineData> void notifySubscribers(T updatedObject) {
+        if(!subscribers.containsKey(updatedObject.getClass()))
+            return;
+        if(!subscribers.get(updatedObject.getClass()).containsKey(updatedObject.getObjectUUID()))
+            return;
+        Set<DataSubscriber<? extends IPipelineData, ?>> subscriberSet = subscribers.get(updatedObject.getClass()).get(updatedObject.getObjectUUID());
+        for (DataSubscriber<? extends IPipelineData, ?> dataSubscriber : subscriberSet)
+            dataSubscriber.update(updatedObject);
+    }
+
+    @Override
+    public <T extends IPipelineData> boolean hasDataSubscribers(@NotNull Class<? extends T> dataClass, @NotNull UUID objectUUID) {
+        if(!subscribers.containsKey(dataClass) || !subscribers.get(dataClass).containsKey(objectUUID))
+            return false;
+        return !subscribers.get(dataClass).get(objectUUID).isEmpty();
     }
 
     @Override
