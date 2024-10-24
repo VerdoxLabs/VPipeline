@@ -5,7 +5,7 @@ import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
-import de.verdox.vpipeline.api.pipeline.core.NetworkDataLockingService;
+import de.verdox.vpipeline.api.pipeline.parts.NetworkDataLockingService;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.core.PipelineSynchronizer;
 import de.verdox.vpipeline.api.pipeline.datatypes.DataRegistry;
@@ -63,6 +63,11 @@ public class PipelineImpl implements Pipeline {
                     .getAttachedPipeline()
                     .attachPipeline(this);
         this.ready = true;
+    }
+
+    @Override
+    public void connect() {
+        Pipeline.super.connect();
         NetworkLogger.info("Pipeline started");
     }
 

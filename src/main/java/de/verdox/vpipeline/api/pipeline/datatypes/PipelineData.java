@@ -38,7 +38,7 @@ public abstract class PipelineData implements IPipelineData {
         if (pipeline.getSynchronizingService() != null)
             this.dataSynchronizer = pipeline.getSynchronizingService().getOrCreate(pipeline, this);
         else
-            this.dataSynchronizer = new DummyDataDataSynchronizer();
+            this.dataSynchronizer = new DummyDataDataSynchronizer(getClass());
         PipelineDataProperties dataProperties = AnnotationResolver.getDataProperties(getClass());
         this.cleanTime = dataProperties.time();
         this.cleanTimeUnit = dataProperties.timeUnit();
@@ -108,7 +108,13 @@ public abstract class PipelineData implements IPipelineData {
         return attachedPipeline;
     }
 
-    class DummyDataDataSynchronizer implements DataSynchronizer {
+    static class DummyDataDataSynchronizer implements DataSynchronizer {
+
+        private final Class<? extends IPipelineData> type;
+
+        public DummyDataDataSynchronizer(Class<? extends IPipelineData> type){
+            this.type = type;
+        }
 
         @Override
         public void shutdown() {
@@ -142,7 +148,17 @@ public abstract class PipelineData implements IPipelineData {
 
         @Override
         public Class<? extends IPipelineData> getSynchronizingType() {
-            return PipelineData.this.getClass();
+            return type;
+        }
+
+        @Override
+        public void connect() {
+
+        }
+
+        @Override
+        public void disconnect() {
+
         }
     }
 }

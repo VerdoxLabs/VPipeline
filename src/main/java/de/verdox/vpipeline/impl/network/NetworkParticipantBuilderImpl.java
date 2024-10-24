@@ -6,7 +6,7 @@ import de.verdox.vpipeline.api.messaging.Transmitter;
 import de.verdox.vpipeline.api.messaging.builder.MessagingServiceBuilder;
 import de.verdox.vpipeline.api.network.RemoteParticipant;
 import de.verdox.vpipeline.api.pipeline.builder.PipelineBuilder;
-import de.verdox.vpipeline.api.pipeline.core.NetworkDataLockingService;
+import de.verdox.vpipeline.api.pipeline.parts.NetworkDataLockingService;
 import de.verdox.vpipeline.impl.messaging.MessagingServiceImpl;
 import de.verdox.vpipeline.impl.messaging.builder.MessagingServiceBuilderImpl;
 import de.verdox.vpipeline.impl.pipeline.builder.PipelineBuilderImpl;
@@ -58,14 +58,6 @@ public class NetworkParticipantBuilderImpl implements NetworkParticipantBuilder 
         var pipeline = ((PipelineBuilderImpl) this.pipelineBuilder).buildPipeline();
         var messagingService = this.messagingServiceBuilder.buildMessagingService();
 
-        var participant = new NetworkParticipantImpl(RemoteParticipant.getParticipantUUID(name), name, pipeline, messagingService, service);
-        if (pipeline instanceof PipelineImpl pipelineImpl)
-            pipelineImpl.setNetworkParticipant(participant);
-        if (messagingService instanceof MessagingServiceImpl messagingServiceImpl)
-            messagingServiceImpl.setNetworkParticipant(participant);
-
-        participant.enable();
-
-        return participant;
+        return new NetworkParticipantImpl(RemoteParticipant.getParticipantUUID(name), name, pipeline, messagingService, service);
     }
 }

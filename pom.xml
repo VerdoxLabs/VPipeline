@@ -32,14 +32,14 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId></groupId>
-            <artifactId></artifactId>
-            <classifier>mcc-serializer</classifier>
-        </dependency>
-        <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>2.10.1</version>
+        </dependency>
+        <dependency>
+            <groupId>de.verdox.mccreativelab</groupId>
+            <artifactId>mcc-serializer</artifactId>
+            <version>1.0</version>
         </dependency>
         <dependency>
             <groupId>commons-io</groupId>

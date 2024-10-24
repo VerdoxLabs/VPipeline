@@ -1,5 +1,6 @@
 package de.verdox.vpipeline.impl.network;
 
+import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.pipeline.parts.cache.local.AccessInvalidException;
 import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
 import de.verdox.vpipeline.api.pipeline.parts.cache.local.LockableAction;
@@ -7,6 +8,8 @@ import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.network.RemoteParticipant;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
+import de.verdox.vpipeline.impl.messaging.MessagingServiceImpl;
+import de.verdox.vpipeline.impl.pipeline.core.PipelineImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,6 +24,18 @@ public record NetworkParticipantImpl(UUID uuid, String identifier, @Nullable Pip
                                      ScheduledExecutorService service) implements de.verdox.vpipeline.api.NetworkParticipant {
 
     //TODO: Für LoadBefore Daten Pings über das Netzwerk senden, um z.B. Daten nach creation zu laden.
+
+
+    @Override
+    public void connect() {
+        if (pipeline instanceof PipelineImpl pipelineImpl)
+            pipelineImpl.setNetworkParticipant(this);
+        if (messagingService instanceof MessagingServiceImpl messagingServiceImpl)
+            messagingServiceImpl.setNetworkParticipant(this);
+
+        NetworkParticipant.super.connect();
+        enable();
+    }
 
     void enable() {
         //Check network if there is already a participant online.

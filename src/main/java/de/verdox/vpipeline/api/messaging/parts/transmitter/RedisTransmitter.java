@@ -1,6 +1,9 @@
 package de.verdox.vpipeline.api.messaging.parts.transmitter;
 
 import com.google.gson.*;
+import de.verdox.mccreativelab.serialization.JsonSerializer;
+import de.verdox.mccreativelab.serialization.JsonSerializerBuilder;
+import de.verdox.mccreativelab.serialization.SerializableField;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.messaging.Transmitter;
@@ -14,9 +17,15 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class RedisTransmitter implements Transmitter {
+    public static final JsonSerializer<RedisTransmitter> SERIALIZER = JsonSerializerBuilder.create("redis_transmitter", RedisTransmitter.class)
+            .constructor(
+                    new SerializableField<>("redis_connection", RedisConnection.SERIALIZER, RedisTransmitter::getRedisConnection),
+                    RedisTransmitter::new
+            )
+            .build();
 
-    private final RTopic globalMessagingChannel;
-    private final MessageListener<String> listener;
+    private RTopic globalMessagingChannel;
+    private MessageListener<String> listener;
     private final RedisConnection redisConnection;
     private MessagingService messagingService;
     private RTopic privateMessagingChannel;
@@ -25,39 +34,6 @@ public class RedisTransmitter implements Transmitter {
 
     public RedisTransmitter(RedisConnection redisConnection) {
         this.redisConnection = redisConnection;
-
-        globalMessagingChannel = redisConnection.getRedissonClient().getTopic("GlobalMessagingChannel", new StringCodec());
-        this.listener = (channel, msgString) -> {
-            //TODO: Den richtigen Typ hernehmen nach ID zum deserializen
-            //TODO: Die Id mitsenden?
-            var element = JsonParser.parseString(msgString);
-
-
-            var instructionID = element.getAsJsonObject().get("id").getAsJsonPrimitive().getAsInt();
-            var data = element.getAsJsonObject().get("data");
-            var type = messagingService.getMessageFactory().getCachedInstructionData(instructionID);
-            if (type == null) {
-                if (NetworkLogger.transmitterDebugMode.isDebugMode())
-                    NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Received unknown data with id: " + instructionID);
-                return;
-            }
-
-            var deserializedInstruction = gson.fromJson(data, type.type());
-            if (deserializedInstruction.getSenderUUID().equals(messagingService.getSessionUUID()))
-                return;
-            if (NetworkLogger.transmitterDebugMode.isDebugMode()) {
-                NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Received a message on global channel");
-                NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Deserialized message to " + type
-                        .type().getSimpleName());
-            }
-            try {
-                messagingService.postMessageEvent(String.valueOf(channel), deserializedInstruction);
-            } catch (Throwable e) {
-                e.printStackTrace();
-            }
-        };
-        globalMessagingChannel.addListener(String.class, listener);
-        NetworkLogger.info("Redis Transmitter connected");
     }
 
 
@@ -97,15 +73,12 @@ public class RedisTransmitter implements Transmitter {
         if (this.messagingService != null)
             throw new IllegalStateException("MessagingService can't be changed afterwards");
         this.messagingService = messagingService;
-
-        privateMessagingChannel = getPrivateMessagingChannel(messagingService.getSessionUUID());
-        privateMessagingChannel.addListener(String.class, listener);
-
-        NetworkLogger.info("[" + messagingService.getSessionIdentifier() + "] Private Channel: " + "PrivateMessagingChannel_" + messagingService.getSessionUUID());
     }
 
     @Override
     public long getNetworkTransmitterAmount() {
+        if(this.globalMessagingChannel == null)
+            return 0;
         return this.globalMessagingChannel.countSubscribers();
     }
 
@@ -125,5 +98,57 @@ public class RedisTransmitter implements Transmitter {
         object.add("id", new JsonPrimitive(instruction.getInstructionID()));
         object.add("data", gson.toJsonTree(instruction));
         return rTopic.publish(gson.toJson(object));
+    }
+
+    public RedisConnection getRedisConnection() {
+        return redisConnection;
+    }
+
+    @Override
+    public void connect() {
+        getRedisConnection().connect();
+
+        globalMessagingChannel = redisConnection.getRedissonClient().getTopic("GlobalMessagingChannel", new StringCodec());
+        this.listener = (channel, msgString) -> {
+            //TODO: Den richtigen Typ hernehmen nach ID zum deserializen
+            //TODO: Die Id mitsenden?
+            var element = JsonParser.parseString(msgString);
+
+
+            var instructionID = element.getAsJsonObject().get("id").getAsJsonPrimitive().getAsInt();
+            var data = element.getAsJsonObject().get("data");
+            var type = messagingService.getMessageFactory().getCachedInstructionData(instructionID);
+            if (type == null) {
+                if (NetworkLogger.transmitterDebugMode.isDebugMode())
+                    NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Received unknown data with id: " + instructionID);
+                return;
+            }
+
+            var deserializedInstruction = gson.fromJson(data, type.type());
+            if (deserializedInstruction.getSenderUUID().equals(messagingService.getSessionUUID()))
+                return;
+            if (NetworkLogger.transmitterDebugMode.isDebugMode()) {
+                NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Received a message on global channel");
+                NetworkLogger.debug("[" + messagingService.getSessionIdentifier() + "] Deserialized message to " + type
+                        .type().getSimpleName());
+            }
+            try {
+                messagingService.postMessageEvent(String.valueOf(channel), deserializedInstruction);
+            } catch (Throwable e) {
+                e.printStackTrace();
+            }
+        };
+        globalMessagingChannel.addListener(String.class, listener);
+        NetworkLogger.info("Redis Transmitter connected");
+
+        privateMessagingChannel = getPrivateMessagingChannel(messagingService.getSessionUUID());
+        privateMessagingChannel.addListener(String.class, listener);
+
+        NetworkLogger.info("[" + messagingService.getSessionIdentifier() + "] Private Channel: " + "PrivateMessagingChannel_" + messagingService.getSessionUUID());
+    }
+
+    @Override
+    public void disconnect() {
+        getRedisConnection().disconnect();
     }
 }

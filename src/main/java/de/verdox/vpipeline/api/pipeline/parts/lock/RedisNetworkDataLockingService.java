@@ -1,6 +1,9 @@
 package de.verdox.vpipeline.api.pipeline.parts.lock;
 
-import de.verdox.vpipeline.api.pipeline.core.NetworkDataLockingService;
+import de.verdox.mccreativelab.serialization.JsonSerializer;
+import de.verdox.mccreativelab.serialization.JsonSerializerBuilder;
+import de.verdox.mccreativelab.serialization.SerializableField;
+import de.verdox.vpipeline.api.pipeline.parts.NetworkDataLockingService;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import de.verdox.vpipeline.impl.util.RedisConnection;
@@ -10,6 +13,12 @@ import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 
 public class RedisNetworkDataLockingService implements NetworkDataLockingService {
+    public static final JsonSerializer<RedisNetworkDataLockingService> SERIALIZER = JsonSerializerBuilder.create("redis_network_data_locking_service", RedisNetworkDataLockingService.class)
+            .constructor(
+                    new SerializableField<>("redis_connection", RedisConnection.SERIALIZER, RedisNetworkDataLockingService::getRedisConnection),
+                    RedisNetworkDataLockingService::new
+            )
+            .build();
     private final RedisConnection redisConnection;
     public RedisNetworkDataLockingService(RedisConnection redisConnection){
         this.redisConnection = redisConnection;
@@ -29,5 +38,19 @@ public class RedisNetworkDataLockingService implements NetworkDataLockingService
                 .getDataStorageClassifier(type)
                 .isEmpty() ? "" : AnnotationResolver.getDataStorageClassifier(type) + ":";
         return "Lock:" + classifier + uuid + ":" + AnnotationResolver.getDataStorageIdentifier(type);
+    }
+
+    public RedisConnection getRedisConnection() {
+        return redisConnection;
+    }
+
+    @Override
+    public void connect() {
+        this.redisConnection.connect();
+    }
+
+    @Override
+    public void disconnect() {
+        this.redisConnection.disconnect();
     }
 }

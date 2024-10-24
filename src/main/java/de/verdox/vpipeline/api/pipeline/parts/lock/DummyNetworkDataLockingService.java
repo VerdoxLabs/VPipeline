@@ -1,11 +1,10 @@
 package de.verdox.vpipeline.api.pipeline.parts.lock;
 
-import de.verdox.vpipeline.api.pipeline.core.NetworkDataLockingService;
+import de.verdox.vpipeline.api.pipeline.parts.NetworkDataLockingService;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,5 +28,15 @@ public class DummyNetworkDataLockingService implements NetworkDataLockingService
                 .getDataStorageClassifier(type)
                 .isEmpty() ? "" : AnnotationResolver.getDataStorageClassifier(type) + ":";
         return classifier + uuid + ":" + AnnotationResolver.getDataStorageIdentifier(type);
+    }
+
+    @Override
+    public void connect() {
+
+    }
+
+    @Override
+    public void disconnect() {
+
     }
 }

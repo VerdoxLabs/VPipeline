@@ -12,6 +12,10 @@ public interface NetworkParticipantBuilder {
     default NetworkParticipantBuilder withPipeline(){
         return withPipeline(pipelineBuilder -> {});
     }
+
+    default NetworkParticipantBuilder withMessagingService() {
+        return withMessagingService(messagingServiceBuilder -> {});
+    }
     NetworkParticipantBuilder withPipeline(Consumer<PipelineBuilder> pipelineBuilder);
     NetworkParticipantBuilder withMessagingService(Consumer<MessagingServiceBuilder> pipelineBuilder);
 

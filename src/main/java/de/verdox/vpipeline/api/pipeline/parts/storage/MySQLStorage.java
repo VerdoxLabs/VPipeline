@@ -1,6 +1,7 @@
 package de.verdox.vpipeline.api.pipeline.parts.storage;
 
 import com.google.gson.GsonBuilder;
+import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
@@ -15,19 +16,19 @@ import java.util.Objects;
 import java.util.function.Function;
 
 public class MySQLStorage extends SQLStorage {
-
-    private final HikariDataSource hikariDataSource;
+    private final HikariConfig hikariConfig;
     private final AttachedPipeline attachedPipeline;
+    private HikariDataSource hikariDataSource;
 
-    public MySQLStorage(HikariDataSource hikariDataSource) {
-        this.hikariDataSource = hikariDataSource;
+    public MySQLStorage(HikariConfig hikariConfig) {
+        this.hikariConfig = hikariConfig;
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
         NetworkLogger.info("MySQL Global Storage connected");
     }
 
     @Override
     public void connect() {
-
+        this.hikariDataSource = new HikariDataSource(hikariConfig);
     }
 
     @Override

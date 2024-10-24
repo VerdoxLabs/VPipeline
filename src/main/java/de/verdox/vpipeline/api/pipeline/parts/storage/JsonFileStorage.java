@@ -3,6 +3,9 @@ package de.verdox.vpipeline.api.pipeline.parts.storage;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import de.verdox.mccreativelab.serialization.JsonSerializer;
+import de.verdox.mccreativelab.serialization.JsonSerializerBuilder;
+import de.verdox.mccreativelab.serialization.SerializableField;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
@@ -19,13 +22,19 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class JsonFileStorage implements GlobalStorage {
+    public static final JsonSerializer<JsonFileStorage> SERIALIZER = JsonSerializerBuilder.create("json_file_storage", JsonFileStorage.class)
+            .constructor(
+                    new SerializableField<>("path", JsonSerializer.Primitive.STRING, jsonFileStorage -> jsonFileStorage.path.toString()),
+                    s -> new JsonFileStorage(Path.of(s))
+            )
+            .build();
+
     private final Path path;
     private final AttachedPipeline attachedPipeline;
 
     public JsonFileStorage(Path path) {
         this.path = path;
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
-        NetworkLogger.info("JsonFileStorage loaded");
     }
 
     @Override
@@ -135,6 +144,16 @@ public class JsonFileStorage implements GlobalStorage {
 
     @Override
     public void shutdown() {
+
+    }
+
+    @Override
+    public void connect() {
+        NetworkLogger.info("JsonFileStorage loaded");
+    }
+
+    @Override
+    public void disconnect() {
 
     }
 }

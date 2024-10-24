@@ -224,8 +224,6 @@ public class MessagingServiceImpl implements MessagingService {
                 return null;
             }));
         }, 0, 10, TimeUnit.SECONDS);
-
-        sendKeepAlivePing();
     }
 
     @Override

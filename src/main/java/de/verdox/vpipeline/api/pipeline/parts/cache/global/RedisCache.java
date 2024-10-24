@@ -3,12 +3,14 @@ package de.verdox.vpipeline.api.pipeline.parts.cache.global;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import de.verdox.mccreativelab.serialization.JsonSerializer;
+import de.verdox.mccreativelab.serialization.JsonSerializerBuilder;
+import de.verdox.mccreativelab.serialization.SerializableField;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
-import de.verdox.vpipeline.api.pipeline.parts.RemoteStorage;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import de.verdox.vpipeline.impl.util.RedisConnection;
 import org.jetbrains.annotations.NotNull;
@@ -21,14 +23,20 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-public class RedisCache implements GlobalCache, RemoteStorage {
+public class RedisCache implements GlobalCache {
+    public static final JsonSerializer<RedisCache> SERIALIZER = JsonSerializerBuilder.create("redis_cache", RedisCache.class)
+            .constructor(
+                    new SerializableField<>("redis_connection", RedisConnection.SERIALIZER, RedisCache::getRedisConnection),
+                    RedisCache::new
+            )
+            .build();
+
     private final AttachedPipeline attachedPipeline;
     private final RedisConnection redisConnection;
 
     public RedisCache(RedisConnection redisConnection) {
         this.redisConnection = redisConnection;
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
-        NetworkLogger.info("Redis GlobalCache connected");
     }
 
     @Override
@@ -133,12 +141,13 @@ public class RedisCache implements GlobalCache, RemoteStorage {
 
     @Override
     public void connect() {
-
+        this.redisConnection.connect();
+        NetworkLogger.info("Redis GlobalCache connected");
     }
 
     @Override
     public void disconnect() {
-        this.redisConnection.getRedissonClient().shutdown();
+        this.redisConnection.disconnect();
     }
 
     @Override
@@ -168,5 +177,9 @@ public class RedisCache implements GlobalCache, RemoteStorage {
         else
             uuidString = key.split(":")[2];
         return UUID.fromString(uuidString);
+    }
+
+    public RedisConnection getRedisConnection() {
+        return redisConnection;
     }
 }

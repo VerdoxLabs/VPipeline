@@ -18,29 +18,24 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class RedisDataDataSynchronizer implements DataSynchronizer {
-    private final RTopic dataTopic;
-    private final MessageListener<DataBlock> messageListener;
+    private RTopic dataTopic;
+    private MessageListener<DataBlock> messageListener;
     private final AttachedPipeline attachedPipeline;
     private final Class<? extends IPipelineData> dataClass;
+    private final Pipeline pipeline;
+    private final RedisConnection redisConnection;
 
     public RedisDataDataSynchronizer(@NotNull Class<? extends IPipelineData> dataClass, @NotNull Pipeline pipeline, @NotNull RedisConnection redisConnection) {
         this.dataClass = dataClass;
+        this.pipeline = pipeline;
 
         Objects.requireNonNull(dataClass, "data can't be null!");
         Objects.requireNonNull(pipeline, "pipeline can't be null!");
         Objects.requireNonNull(redisConnection, "redisConnection can't be null!");
+        this.redisConnection = redisConnection;
         this.attachedPipeline = new AttachedPipeline(GsonBuilder::create);
         this.attachedPipeline.attachPipeline(pipeline);
-        this.dataTopic = redisConnection.getTopic(AnnotationResolver.getDataStorageClassifier(dataClass), dataClass);
-        this.messageListener = (channel, dataBlock) -> {
-            if (dataBlock.getSenderUUID().equals(pipeline.getNetworkParticipant().getUUID()))
-                return;
-            dataBlock.process(dataClass, pipeline);
-            NetworkLogger.debug("["+pipeline.getNetworkParticipant().getUUID()+"] Received and processed dataBlock "+dataBlock);
-        };
-        dataTopic.addListener(DataBlock.class, messageListener);
-        if (AnnotationResolver.getDataProperties(dataClass).debugMode())
-            NetworkLogger.info("RedisDataSynchronizer started for " + dataClass.getSimpleName());
+        connect();
     }
 
 /*    @Deprecated
@@ -109,6 +104,26 @@ public class RedisDataDataSynchronizer implements DataSynchronizer {
 
     @Override
     public void shutdown() {
+        disconnect();
+    }
 
+    @Override
+    public void connect() {
+        this.redisConnection.connect();
+        this.dataTopic = redisConnection.getTopic(AnnotationResolver.getDataStorageClassifier(dataClass), dataClass);
+        this.messageListener = (channel, dataBlock) -> {
+            if (dataBlock.getSenderUUID().equals(pipeline.getNetworkParticipant().getUUID()))
+                return;
+            dataBlock.process(dataClass, pipeline);
+            NetworkLogger.debug("["+pipeline.getNetworkParticipant().getUUID()+"] Received and processed dataBlock "+dataBlock);
+        };
+        dataTopic.addListener(DataBlock.class, messageListener);
+        if (AnnotationResolver.getDataProperties(dataClass).debugMode())
+            NetworkLogger.info("RedisDataSynchronizer started for " + dataClass.getSimpleName());
+    }
+
+    @Override
+    public void disconnect() {
+        this.redisConnection.disconnect();
     }
 }

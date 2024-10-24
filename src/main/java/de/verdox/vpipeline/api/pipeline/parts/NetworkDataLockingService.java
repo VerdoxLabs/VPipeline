@@ -1,5 +1,7 @@
-package de.verdox.vpipeline.api.pipeline.core;
+package de.verdox.vpipeline.api.pipeline.parts;
 
+import de.verdox.mccreativelab.serialization.JsonSerializer;
+import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.lock.DummyNetworkDataLockingService;
 import de.verdox.vpipeline.api.pipeline.parts.lock.RedisNetworkDataLockingService;
@@ -12,7 +14,11 @@ import java.util.concurrent.locks.Lock;
 /**
  * Provides network locks for {@link IPipelineData} read/write operations
  */
-public interface NetworkDataLockingService {
+public interface NetworkDataLockingService extends Connection {
+    JsonSerializer<NetworkDataLockingService> SERIALIZER = JsonSerializer.Selection.create("network_lock", NetworkDataLockingService.class)
+            .variant("redis", RedisNetworkDataLockingService.SERIALIZER, new RedisNetworkDataLockingService(new RedisConnection(false, new String[]{"redis://localhost:6379"}, "")))
+            .variant("dummy", JsonSerializer.Dummy.create(new DummyNetworkDataLockingService()));
+
     /**
      * Returns the network {@link Lock} for read operations on the {@link IPipelineData} object specified by its type and {@link UUID}
      *
@@ -51,6 +57,10 @@ public interface NetworkDataLockingService {
      * @return the networkDataLockingService
      */
     static NetworkDataLockingService createRedis(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
-        return new RedisNetworkDataLockingService(new RedisConnection(clusterMode, addressArray, redisPassword));
+        return createRedis(new RedisConnection(clusterMode, addressArray, redisPassword));
+    }
+
+    static NetworkDataLockingService createRedis(RedisConnection redisConnection) {
+        return new RedisNetworkDataLockingService(redisConnection);
     }
 }

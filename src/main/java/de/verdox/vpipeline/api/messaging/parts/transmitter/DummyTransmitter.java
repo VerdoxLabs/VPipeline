@@ -33,4 +33,14 @@ public class DummyTransmitter implements Transmitter {
     public void shutdown() {
 
     }
+
+    @Override
+    public void connect() {
+
+    }
+
+    @Override
+    public void disconnect() {
+
+    }
 }

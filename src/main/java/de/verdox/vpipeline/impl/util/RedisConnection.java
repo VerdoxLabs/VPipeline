@@ -1,5 +1,9 @@
 package de.verdox.vpipeline.impl.util;
 
+import de.verdox.mccreativelab.serialization.JsonSerializer;
+import de.verdox.mccreativelab.serialization.JsonSerializerBuilder;
+import de.verdox.mccreativelab.serialization.SerializableField;
+import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
@@ -14,15 +18,27 @@ import org.redisson.config.ClusterServersConfig;
 import org.redisson.config.Config;
 import org.redisson.config.SingleServerConfig;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Objects;
 
-public class RedisConnection implements SystemPart {
-    protected final RedissonClient redissonClient;
+public class RedisConnection implements SystemPart, Connection {
+    public static final JsonSerializer<RedisConnection> SERIALIZER = JsonSerializerBuilder.create("redis_connection", RedisConnection.class)
+            .constructor(
+                    new SerializableField<>("clusterMode", JsonSerializer.Primitive.BOOLEAN, RedisConnection::isClusterMode),
+                    new SerializableField<>("addressArray", JsonSerializer.Collection.create(JsonSerializer.Primitive.STRING, ArrayList::new), redisConnection -> Arrays.stream(redisConnection.addressArray).toList()),
+                    new SerializableField<>("redisPassword", JsonSerializer.Primitive.STRING, RedisConnection::getRedisPassword),
+                    (aBoolean, list, s) -> new RedisConnection(aBoolean, list.toArray(new String[0]), s)
+            )
+            .build();
+    private final Config config;
+    protected RedissonClient redissonClient;
     private final boolean clusterMode;
     private final @NotNull String[] addressArray;
     private final String redisPassword;
 
     public RedisConnection(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
+
         this.clusterMode = clusterMode;
         this.addressArray = addressArray;
         this.redisPassword = redisPassword;
@@ -30,7 +46,7 @@ public class RedisConnection implements SystemPart {
         Objects.requireNonNull(redisPassword, "redisPassword can't be null!");
         if (addressArray.length == 0)
             throw new IllegalArgumentException("Address Array empty");
-        Config config = new Config();
+        config = new Config();
         if (clusterMode) {
             ClusterServersConfig clusterServersConfig = config.useClusterServers();
             clusterServersConfig.addNodeAddress(addressArray);
@@ -50,7 +66,7 @@ public class RedisConnection implements SystemPart {
         }
         config.setNettyThreads(4);
         config.setThreads(4);
-        this.redissonClient = Redisson.create(config);
+
     }
 
     public RTopic getTopic(String prefix, @NotNull Class<? extends IPipelineData> dataClass) {
@@ -78,5 +94,15 @@ public class RedisConnection implements SystemPart {
 
     public String getRedisPassword() {
         return redisPassword;
+    }
+
+    @Override
+    public void connect() {
+        this.redissonClient = Redisson.create(config);
+    }
+
+    @Override
+    public void disconnect() {
+        this.redissonClient.shutdown();
     }
 }

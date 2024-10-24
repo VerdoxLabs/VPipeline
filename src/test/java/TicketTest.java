@@ -2,7 +2,7 @@ import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.VNetwork;
 import de.verdox.vpipeline.api.messaging.Transmitter;
-import de.verdox.vpipeline.api.pipeline.core.NetworkDataLockingService;
+import de.verdox.vpipeline.api.pipeline.parts.NetworkDataLockingService;
 import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import model.ticket.AbstractTestTicket;
@@ -72,6 +72,9 @@ public class TicketTest {
 
         networkParticipant1.messagingService().getTicketPropagator().registerTicketType("test_ticket", TestTicket.class, TestTicket::new);
         networkParticipant2.messagingService().getTicketPropagator().registerTicketType("test_ticket", TestTicket.class, TestTicket::new);
+
+        networkParticipant1.connect();
+        networkParticipant2.connect();
     }
 
     @Test

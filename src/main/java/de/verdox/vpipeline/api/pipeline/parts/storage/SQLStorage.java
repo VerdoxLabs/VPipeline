@@ -4,7 +4,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
-import de.verdox.vpipeline.api.pipeline.parts.RemoteStorage;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -18,7 +17,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 
-public abstract class SQLStorage implements GlobalStorage, RemoteStorage {
+public abstract class SQLStorage implements GlobalStorage {
 
     protected static final String TABLE_COLUMN_KEY = "UUID";
     protected static final String TABLE_COLUMN_VAL = "Document";

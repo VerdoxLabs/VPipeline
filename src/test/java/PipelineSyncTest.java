@@ -5,7 +5,7 @@ import de.verdox.vpipeline.api.pipeline.parts.cache.local.LockableAction;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.VNetwork;
-import de.verdox.vpipeline.api.pipeline.core.NetworkDataLockingService;
+import de.verdox.vpipeline.api.pipeline.parts.NetworkDataLockingService;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
@@ -85,6 +85,8 @@ public class PipelineSyncTest {
             pipeline.getDataRegistry().registerType(type);
             remotePipeline.getDataRegistry().registerType(type);
         }
+        networkParticipant1.connect();
+        networkParticipant2.connect();
     }
 
     /**

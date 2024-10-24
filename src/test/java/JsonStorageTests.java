@@ -1,9 +1,7 @@
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.VNetwork;
-import de.verdox.vpipeline.api.pipeline.core.NetworkDataLockingService;
+import de.verdox.vpipeline.api.pipeline.parts.NetworkDataLockingService;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
-import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
-import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import model.data.*;
 import org.apache.commons.io.FileUtils;
@@ -36,6 +34,7 @@ public class JsonStorageTests {
         for (Class<? extends IPipelineData> type : types) {
             networkParticipant.pipeline().getDataRegistry().registerType(type);
         }
+        networkParticipant.connect();
     }
 
     @AfterAll

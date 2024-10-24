@@ -1,7 +1,10 @@
 package de.verdox.vpipeline.api.pipeline.core;
 
 import com.google.gson.GsonBuilder;
-import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
+import de.verdox.mccreativelab.serialization.JsonSerializer;
+import de.verdox.mccreativelab.serialization.JsonSerializerBuilder;
+import de.verdox.mccreativelab.serialization.SerializableField;
+import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.pipeline.datatypes.DataRegistry;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
@@ -9,7 +12,11 @@ import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vpipeline.api.pipeline.parts.LocalCache;
+import de.verdox.vpipeline.api.pipeline.parts.NetworkDataLockingService;
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
 import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataSubscriber;
+import de.verdox.vpipeline.api.pipeline.parts.cache.local.HashedLocalCache;
+import de.verdox.vpipeline.impl.pipeline.core.PipelineImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,7 +24,40 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-public interface Pipeline extends SystemPart {
+public interface Pipeline extends SystemPart, Connection {
+    JsonSerializer<Pipeline> SERIALIZER = JsonSerializerBuilder.create("pipeline", Pipeline.class)
+            .constructor(
+                    new SerializableField<>("globalCache", GlobalCache.SERIALIZER, Pipeline::getGlobalCache),
+                    new SerializableField<>("storage", GlobalStorage.SERIALIZER, Pipeline::getGlobalStorage),
+                    new SerializableField<>("networkLock", NetworkDataLockingService.SERIALIZER, Pipeline::getNetworkDataLockingService),
+                    new SerializableField<>("synchronizingService", SynchronizingService.SERIALIZER, Pipeline::getSynchronizingService),
+                    (globalCache, globalStorage, networkDataLockingService, synchronizingService) ->
+                            new PipelineImpl(new HashedLocalCache(), networkDataLockingService, globalCache, globalStorage, synchronizingService, GsonBuilder::setPrettyPrinting)
+            )
+            .build();
+
+    default void connect() {
+        if (getGlobalCache() != null)
+            getGlobalCache().connect();
+        if (getGlobalStorage() != null)
+            getGlobalStorage().connect();
+        if (getNetworkDataLockingService() != null)
+            getNetworkDataLockingService().connect();
+        if (getSynchronizingService() != null)
+            getSynchronizingService().connect();
+    }
+
+    default void disconnect() {
+        if (getGlobalCache() != null)
+            getGlobalCache().disconnect();
+        if (getGlobalStorage() != null)
+            getGlobalStorage().disconnect();
+        if (getNetworkDataLockingService() != null)
+            getNetworkDataLockingService().disconnect();
+        if (getSynchronizingService() != null)
+            getSynchronizingService().disconnect();
+    }
+
     /**
      * Returns the network participant of this Pipeline
      * @return the network participant

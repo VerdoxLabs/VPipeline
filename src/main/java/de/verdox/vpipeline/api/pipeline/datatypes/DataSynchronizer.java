@@ -1,6 +1,7 @@
 package de.verdox.vpipeline.api.pipeline.datatypes;
 
 import com.google.gson.JsonParser;
+import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
@@ -13,7 +14,7 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
-public interface DataSynchronizer extends SystemPart {
+public interface DataSynchronizer extends SystemPart, Connection {
     /**
      * Cleanup Function triggered when data is removed from cache
      */
