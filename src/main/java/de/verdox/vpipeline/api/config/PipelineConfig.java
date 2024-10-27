@@ -7,7 +7,6 @@ import de.verdox.vserializer.util.gson.JsonUtil;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 
 public class PipelineConfig {
     private final File file;
