@@ -1,7 +1,7 @@
 
 # VPipeline (Beta)
 
-VPipeline is a library that was primarily designed for VCore which is a platform indepentent Minecraft Server Plugin primarily used to synchronize data across multiple servers.
+VPipeline is a library is used to synchronize data across multiple nodes.
 
 
 
