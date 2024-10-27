@@ -1,9 +1,9 @@
 package de.verdox.vpipeline.api.messaging;
 
 import com.google.gson.GsonBuilder;
-import de.verdox.mccreativelab.serialization.JsonSerializer;
-import de.verdox.mccreativelab.serialization.JsonSerializerBuilder;
-import de.verdox.mccreativelab.serialization.SerializableField;
+import de.verdox.vserializer.json.JsonSerializer;
+import de.verdox.vserializer.json.JsonSerializerBuilder;
+import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.messaging.instruction.Instruction;
@@ -27,7 +27,7 @@ import java.util.function.Consumer;
 
 public interface MessagingService extends SystemPart, Connection {
 
-    JsonSerializer<MessagingService> SERIALIZER = JsonSerializerBuilder.create("pipeline", MessagingService.class)
+    JsonSerializer<MessagingService> SERIALIZER = JsonSerializerBuilder.create("messagingService", MessagingService.class)
             .constructor(
                     new SerializableField<>("identifier", JsonSerializer.Primitive.STRING, MessagingService::getSessionIdentifier),
                     new SerializableField<>("transmitter", Transmitter.SERIALIZER, MessagingService::getTransmitter),

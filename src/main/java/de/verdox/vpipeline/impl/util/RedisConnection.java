@@ -1,18 +1,16 @@
 package de.verdox.vpipeline.impl.util;
 
-import de.verdox.mccreativelab.serialization.JsonSerializer;
-import de.verdox.mccreativelab.serialization.JsonSerializerBuilder;
-import de.verdox.mccreativelab.serialization.SerializableField;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
+import de.verdox.vserializer.SerializableField;
+import de.verdox.vserializer.json.JsonSerializer;
+import de.verdox.vserializer.json.JsonSerializerBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.redisson.Redisson;
 import org.redisson.api.RTopic;
 import org.redisson.api.RedissonClient;
-import org.redisson.client.codec.StringCodec;
-import org.redisson.codec.MarshallingCodec;
 import org.redisson.codec.SerializationCodec;
 import org.redisson.config.ClusterServersConfig;
 import org.redisson.config.Config;
@@ -38,7 +36,6 @@ public class RedisConnection implements SystemPart, Connection {
     private final String redisPassword;
 
     public RedisConnection(boolean clusterMode, @NotNull String[] addressArray, String redisPassword) {
-
         this.clusterMode = clusterMode;
         this.addressArray = addressArray;
         this.redisPassword = redisPassword;
@@ -47,6 +44,7 @@ public class RedisConnection implements SystemPart, Connection {
         if (addressArray.length == 0)
             throw new IllegalArgumentException("Address Array empty");
         config = new Config();
+
         if (clusterMode) {
             ClusterServersConfig clusterServersConfig = config.useClusterServers();
             clusterServersConfig.addNodeAddress(addressArray);
@@ -66,7 +64,6 @@ public class RedisConnection implements SystemPart, Connection {
         }
         config.setNettyThreads(4);
         config.setThreads(4);
-
     }
 
     public RTopic getTopic(String prefix, @NotNull Class<? extends IPipelineData> dataClass) {

@@ -34,7 +34,7 @@ public class ConfigTest {
             redisServer.stop();
             redisServer = null;
         }
-        new File("test.json").delete();
+        //new File("test.json").delete();
     }
 
     @Test

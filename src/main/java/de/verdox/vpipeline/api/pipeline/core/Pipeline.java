@@ -1,9 +1,9 @@
 package de.verdox.vpipeline.api.pipeline.core;
 
 import com.google.gson.GsonBuilder;
-import de.verdox.mccreativelab.serialization.JsonSerializer;
-import de.verdox.mccreativelab.serialization.JsonSerializerBuilder;
-import de.verdox.mccreativelab.serialization.SerializableField;
+import de.verdox.vserializer.json.JsonSerializer;
+import de.verdox.vserializer.json.JsonSerializerBuilder;
+import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.pipeline.datatypes.DataRegistry;

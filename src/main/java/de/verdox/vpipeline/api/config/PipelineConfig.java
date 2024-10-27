@@ -1,12 +1,13 @@
 package de.verdox.vpipeline.api.config;
 
 import com.google.gson.JsonObject;
-import de.verdox.mccreativelab.util.gson.JsonUtil;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.VNetwork;
+import de.verdox.vserializer.util.gson.JsonUtil;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 
 public class PipelineConfig {
     private final File file;

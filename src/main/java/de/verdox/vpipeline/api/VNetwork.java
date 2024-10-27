@@ -1,5 +1,6 @@
 package de.verdox.vpipeline.api;
 
+import de.verdox.vpipeline.impl.ConstructionServiceImpl;
 import org.jetbrains.annotations.NotNull;
 import org.reflections.Reflections;
 
@@ -18,7 +19,7 @@ public final class VNetwork {
     }
 
     static {
-        setConstructionService(instantiateSingleton(ConstructionService.class));
+        setConstructionService(new ConstructionServiceImpl());
     }
 
     private static void setConstructionService(@NotNull ConstructionService pipelineService) {
@@ -29,19 +30,5 @@ public final class VNetwork {
         }
         NetworkLogger.getLogger().setLevel(Level.ALL);
         VNetwork.pipelineService = pipelineService;
-    }
-
-    private static <T> T instantiateSingleton(@NotNull Class<? extends T> type) {
-        Reflections reflections = new Reflections("de.verdox.vpipeline.impl");
-        Class<? extends T> pipelineServiceClass = reflections.getSubTypesOf(type).stream().findAny().orElse(null);
-        try {
-            if (pipelineServiceClass == null)
-                throw new NullPointerException("Could not find service implementation class for " + type);
-            return pipelineServiceClass.getConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                 NoSuchMethodException e) {
-            e.printStackTrace();
-            return null;
-        }
     }
 }

@@ -1,6 +1,10 @@
 package de.verdox.vpipeline.api.pipeline.datatypes;
 
 import com.google.gson.JsonParser;
+import de.verdox.vserializer.SerializableField;
+import de.verdox.vserializer.json.JsonSerializer;
+import de.verdox.vserializer.json.JsonSerializerBuilder;
+
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
@@ -15,6 +19,10 @@ import java.util.Objects;
 import java.util.UUID;
 
 public interface DataSynchronizer extends SystemPart, Connection {
+    JsonSerializer<DataBlock> DATA_BLOCK_SERIALIZER = JsonSerializer.Types.create("datablock", DataBlock.class)
+            .type("update", UpdateDataBlock.SERIALIZER)
+            .type("creation", CreationDataBlock.SERIALIZER)
+            .type("remove", RemoveDataBlock.SERIALIZER);
     /**
      * Cleanup Function triggered when data is removed from cache
      */
@@ -117,6 +125,13 @@ public interface DataSynchronizer extends SystemPart, Connection {
     }
 
     class RemoveDataBlock extends DataBlock {
+        public static final JsonSerializer<RemoveDataBlock> SERIALIZER = JsonSerializerBuilder.create("removeDataBlock", RemoveDataBlock.class)
+                .constructor(
+                        new SerializableField<>("senderUUID", JsonSerializer.UUID.INSTANCE, RemoveDataBlock::getSenderUUID),
+                        new SerializableField<>("dataUUID", JsonSerializer.UUID.INSTANCE, RemoveDataBlock::getDataUUID),
+                        RemoveDataBlock::new
+                )
+                .build();
         public RemoveDataBlock(@NotNull UUID senderUUID, @NotNull UUID dataUUID) {
             super(senderUUID, dataUUID);
         }
@@ -143,6 +158,14 @@ public interface DataSynchronizer extends SystemPart, Connection {
     }
 
     class CreationDataBlock extends DataBlock {
+        public static final JsonSerializer<CreationDataBlock> SERIALIZER = JsonSerializerBuilder.create("creationDataBlock", CreationDataBlock.class)
+                .constructor(
+                        new SerializableField<>("senderUUID", JsonSerializer.UUID.INSTANCE, CreationDataBlock::getSenderUUID),
+                        new SerializableField<>("dataUUID", JsonSerializer.UUID.INSTANCE, CreationDataBlock::getDataUUID),
+                        new SerializableField<>("dataToUpdate", JsonSerializer.Primitive.STRING, CreationDataBlock::getDataToUpdate),
+                        CreationDataBlock::new
+                )
+                .build();
         private final String dataToUpdate;
 
         public CreationDataBlock(@NotNull UUID senderUUID, @NotNull UUID dataUUID, String dataToUpdate) {
@@ -172,9 +195,21 @@ public interface DataSynchronizer extends SystemPart, Connection {
                     ", dataToUpdate='" + dataToUpdate + '\'' +
                     '}';
         }
+
+        public String getDataToUpdate() {
+            return dataToUpdate;
+        }
     }
 
     class UpdateDataBlock extends DataBlock {
+        public static final JsonSerializer<UpdateDataBlock> SERIALIZER = JsonSerializerBuilder.create("updateDataBlock", UpdateDataBlock.class)
+                .constructor(
+                        new SerializableField<>("senderUUID", JsonSerializer.UUID.INSTANCE, UpdateDataBlock::getSenderUUID),
+                        new SerializableField<>("dataUUID", JsonSerializer.UUID.INSTANCE, UpdateDataBlock::getDataUUID),
+                        new SerializableField<>("dataToUpdate", JsonSerializer.Primitive.STRING, UpdateDataBlock::getDataToUpdate),
+                        UpdateDataBlock::new
+                )
+                .build();
         private final String dataToUpdate;
 
         public UpdateDataBlock(@NotNull UUID senderUUID, @NotNull UUID dataUUID, String dataToUpdate) {
@@ -202,6 +237,10 @@ public interface DataSynchronizer extends SystemPart, Connection {
             data.onSync(dataBeforeSync);
             DataAccess<IPipelineData> access = pipeline.getLocalCache().createAccess(dataClass, dataUUID);
             access.notifySubscribers(data);
+        }
+
+        public String getDataToUpdate() {
+            return dataToUpdate;
         }
 
         @Override

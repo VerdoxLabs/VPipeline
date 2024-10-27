@@ -45,7 +45,8 @@ public interface TicketPropagator {
     void triggerTicketDataPreload(Class<? extends Ticket> ticketType);
 
     /**
-     * Used locally to preload ticket data and trigger tickets of a specific type
+     * Used locally to preload ticket groups data and trigger tickets of a specific type.
+     * A ticket group consists of tickets that derive have the same type as the provided ticketType or are a subclass.
      * The programmer may specify on their own when data preload and ticket consumption happens by calling this function.
      *
      * @param ticketType      the ticket type
@@ -54,7 +55,8 @@ public interface TicketPropagator {
     <T extends Ticket> Set<T> preloadDataAndConsumeTicketGroup(Class<? extends T> ticketType, Object... inputParameters);
 
     /**
-     * Used locally to trigger tickets of a specific type
+     * Used locally to trigger tickets of a specific type.
+     * A ticket group consists of tickets that derive have the same type as the provided ticketType or are a subclass.
      * The programmer may specify on their own when data preload happens by calling this function.
      *
      * @param ticketType      the ticket type
@@ -64,6 +66,7 @@ public interface TicketPropagator {
 
     /**
      * Some {@link Ticket}s need to load data before they can be run. In some cases it is advantageous to not load data in a {@link Ticket}.
+     * A ticket group consists of tickets that derive have the same type as the provided ticketType or are a subclass.
      * The programmer may specify on their own when data preload happens by calling this function.
      *
      * @param ticketType      the ticket type

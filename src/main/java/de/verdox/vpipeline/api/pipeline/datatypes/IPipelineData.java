@@ -3,9 +3,10 @@ package de.verdox.vpipeline.api.pipeline.datatypes;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.JsonSerializer;
+import de.verdox.vserializer.json.JsonSerializer;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -94,4 +95,9 @@ public interface IPipelineData {
     void updateLastUsage();
     void save(boolean saveToStorage);
     AttachedPipeline getAttachedPipeline();
+
+    @Nullable
+    default JsonSerializer<IPipelineData> getCustomJsonSerializer(){
+        return null;
+    }
 }

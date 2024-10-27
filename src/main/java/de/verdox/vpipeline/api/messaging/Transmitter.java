@@ -1,6 +1,6 @@
 package de.verdox.vpipeline.api.messaging;
 
-import de.verdox.mccreativelab.serialization.JsonSerializer;
+import de.verdox.vserializer.json.JsonSerializer;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.messaging.instruction.Instruction;
 import de.verdox.vpipeline.api.messaging.parts.transmitter.DummyTransmitter;

@@ -9,6 +9,7 @@ import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vpipeline.api.pipeline.parts.LocalCache;
+import de.verdox.vpipeline.api.pipeline.parts.synchronizer.pipeline.DummySynchronizingService;
 import de.verdox.vpipeline.impl.pipeline.core.PipelineImpl;
 import de.verdox.vpipeline.api.pipeline.parts.cache.local.HashedLocalCache;
 import org.jetbrains.annotations.NotNull;
@@ -18,7 +19,7 @@ import java.util.function.Consumer;
 public class PipelineBuilderImpl implements PipelineBuilder {
     private GlobalCache globalCache;
     private GlobalStorage globalStorage;
-    private SynchronizingService synchronizingService;
+    private SynchronizingService synchronizingService = new DummySynchronizingService();
     private NetworkDataLockingService networkDataLockingService = NetworkDataLockingService.createDummy();
     private Consumer<GsonBuilder> gsonBuilderConsumer;
     private LocalCache localCache = new HashedLocalCache();
@@ -50,7 +51,6 @@ public class PipelineBuilderImpl implements PipelineBuilder {
 
     @Override
     public PipelineBuilder withSynchronizingService(SynchronizingService synchronizingService) {
-        checkSynchronizingService();
         this.synchronizingService = synchronizingService;
         return this;
     }
@@ -78,15 +78,5 @@ public class PipelineBuilderImpl implements PipelineBuilder {
     private void checkCache() {
         if (globalCache != null)
             throw new RuntimeException("GlobalCache already set in PipelineBuilder");
-    }
-
-    private void checkSynchronizingService() {
-        if (synchronizingService != null)
-            throw new RuntimeException("GlobalCache already set in PipelineBuilder");
-    }
-
-    private void checkNetworkDataLockingService() {
-        if (networkDataLockingService != null)
-            throw new RuntimeException("NetworkDataLockingService already set in PipelineBuilder");
     }
 }

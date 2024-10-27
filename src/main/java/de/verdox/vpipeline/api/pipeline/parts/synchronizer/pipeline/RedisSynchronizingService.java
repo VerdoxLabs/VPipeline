@@ -1,8 +1,8 @@
 package de.verdox.vpipeline.api.pipeline.parts.synchronizer.pipeline;
 
-import de.verdox.mccreativelab.serialization.JsonSerializer;
-import de.verdox.mccreativelab.serialization.JsonSerializerBuilder;
-import de.verdox.mccreativelab.serialization.SerializableField;
+import de.verdox.vserializer.json.JsonSerializer;
+import de.verdox.vserializer.json.JsonSerializerBuilder;
+import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;

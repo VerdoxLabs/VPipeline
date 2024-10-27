@@ -2,7 +2,7 @@ package de.verdox.vpipeline.api.pipeline.parts;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import de.verdox.mccreativelab.serialization.JsonSerializer;
+import de.verdox.vserializer.json.JsonSerializer;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.storage.JsonFileStorage;

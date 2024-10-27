@@ -1,6 +1,6 @@
 package de.verdox.vpipeline.api.pipeline.parts;
 
-import de.verdox.mccreativelab.serialization.JsonSerializer;
+import de.verdox.vserializer.json.JsonSerializer;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.lock.DummyNetworkDataLockingService;
@@ -16,8 +16,9 @@ import java.util.concurrent.locks.Lock;
  */
 public interface NetworkDataLockingService extends Connection {
     JsonSerializer<NetworkDataLockingService> SERIALIZER = JsonSerializer.Selection.create("network_lock", NetworkDataLockingService.class)
+            .variant("dummy", JsonSerializer.Dummy.create(new DummyNetworkDataLockingService()))
             .variant("redis", RedisNetworkDataLockingService.SERIALIZER, new RedisNetworkDataLockingService(new RedisConnection(false, new String[]{"redis://localhost:6379"}, "")))
-            .variant("dummy", JsonSerializer.Dummy.create(new DummyNetworkDataLockingService()));
+            ;
 
     /**
      * Returns the network {@link Lock} for read operations on the {@link IPipelineData} object specified by its type and {@link UUID}

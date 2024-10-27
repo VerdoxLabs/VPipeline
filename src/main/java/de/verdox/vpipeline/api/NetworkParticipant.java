@@ -1,8 +1,8 @@
 package de.verdox.vpipeline.api;
 
-import de.verdox.mccreativelab.serialization.JsonSerializer;
-import de.verdox.mccreativelab.serialization.JsonSerializerBuilder;
-import de.verdox.mccreativelab.serialization.SerializableField;
+import de.verdox.vserializer.json.JsonSerializer;
+import de.verdox.vserializer.json.JsonSerializerBuilder;
+import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.messaging.RemoteMessageReceiver;
 import de.verdox.vpipeline.api.network.RemoteParticipant;

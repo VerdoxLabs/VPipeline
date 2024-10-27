@@ -1,0 +1,74 @@
+{
+  "identifier": "pipeline",
+  "pipeline": {
+    "globalCache": {
+      "nothing": "null",
+      "redis": {
+        "redis_connection": {
+          "clusterMode": false,
+          "addressArray": [
+            "redis://localhost:6379"
+          ],
+          "redisPassword": ""
+        }
+      },
+      "type": "nothing"
+    },
+    "storage": {
+      "mongo": {
+        "host": "127.0.0.1",
+        "database": "pipeline",
+        "port": 27017,
+        "user": "root",
+        "password": "password",
+        "url": "https://mongoURL"
+      },
+      "json": {
+        "path": "testStorage"
+      },
+      "type": "json"
+    },
+    "networkLock": {
+      "dummy": "",
+      "redis": {
+        "redis_connection": {
+          "clusterMode": false,
+          "addressArray": [
+            "redis://localhost:6379"
+          ],
+          "redisPassword": ""
+        }
+      },
+      "type": "dummy"
+    },
+    "synchronizingService": {
+      "dummy": "",
+      "redis": {
+        "redis_connection": {
+          "clusterMode": false,
+          "addressArray": [
+            "redis://localhost:6379"
+          ],
+          "redisPassword": ""
+        }
+      },
+      "type": "dummy"
+    }
+  },
+  "messagingService": {
+    "identifier": "pipeline",
+    "transmitter": {
+      "dummy": "",
+      "redis": {
+        "redis_connection": {
+          "clusterMode": false,
+          "addressArray": [
+            "redis://localhost:6379"
+          ],
+          "redisPassword": ""
+        }
+      },
+      "type": "dummy"
+    }
+  }
+}
