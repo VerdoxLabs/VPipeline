@@ -6,28 +6,28 @@ import com.google.gson.JsonParser;
 import com.mongodb.*;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonSerializerBuilder;
 import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.generic.SerializerBuilder;
 import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
 public class MongoDBStorage implements GlobalStorage, Connection {
-    public static final JsonSerializer<MongoDBStorage> SERIALIZER = JsonSerializerBuilder.create("mongo_db_storage", MongoDBStorage.class)
+    public static final Serializer<MongoDBStorage> SERIALIZER = SerializerBuilder.create("mongo_db_storage", MongoDBStorage.class)
             .constructor(
-                    new SerializableField<>("host", JsonSerializer.Primitive.STRING, mongoDBStorage -> mongoDBStorage.host),
-                    new SerializableField<>("database", JsonSerializer.Primitive.STRING, mongoDBStorage -> mongoDBStorage.database),
-                    new SerializableField<>("port", JsonSerializer.Primitive.INTEGER, mongoDBStorage -> mongoDBStorage.port),
-                    new SerializableField<>("user", JsonSerializer.Primitive.STRING, mongoDBStorage -> mongoDBStorage.user),
-                    new SerializableField<>("password", JsonSerializer.Primitive.STRING, mongoDBStorage -> mongoDBStorage.password),
-                    new SerializableField<>("url", JsonSerializer.Primitive.STRING, mongoDBStorage -> mongoDBStorage.url),
+                    new SerializableField<>("host", Serializer.Primitive.STRING, mongoDBStorage -> mongoDBStorage.host),
+                    new SerializableField<>("database", Serializer.Primitive.STRING, mongoDBStorage -> mongoDBStorage.database),
+                    new SerializableField<>("port", Serializer.Primitive.INTEGER, mongoDBStorage -> mongoDBStorage.port),
+                    new SerializableField<>("user", Serializer.Primitive.STRING, mongoDBStorage -> mongoDBStorage.user),
+                    new SerializableField<>("password", Serializer.Primitive.STRING, mongoDBStorage -> mongoDBStorage.password),
+                    new SerializableField<>("url", Serializer.Primitive.STRING, mongoDBStorage -> mongoDBStorage.url),
                     MongoDBStorage::new
             )
             .build();

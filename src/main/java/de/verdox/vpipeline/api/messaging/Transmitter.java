@@ -1,14 +1,12 @@
 package de.verdox.vpipeline.api.messaging;
 
-import de.verdox.vserializer.json.JsonSerializer;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.messaging.instruction.Instruction;
 import de.verdox.vpipeline.api.messaging.parts.transmitter.DummyTransmitter;
 import de.verdox.vpipeline.api.messaging.parts.transmitter.RedisTransmitter;
 import de.verdox.vpipeline.api.pipeline.core.SystemPart;
-import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
-import de.verdox.vpipeline.api.pipeline.parts.cache.global.RedisCache;
 import de.verdox.vpipeline.impl.util.RedisConnection;
+import de.verdox.vserializer.generic.Serializer;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
@@ -18,8 +16,8 @@ import java.util.UUID;
  */
 public interface Transmitter extends SystemPart, Connection {
 
-    JsonSerializer<Transmitter> SERIALIZER = JsonSerializer.Selection.create("transmitter", Transmitter.class)
-            .variant("dummy", JsonSerializer.Dummy.create(new DummyTransmitter()))
+    Serializer<Transmitter> SERIALIZER = Serializer.Selection.create("transmitter", Transmitter.class)
+            .variant("dummy", Serializer.Dummy.create(new DummyTransmitter()))
             .variant("redis", RedisTransmitter.SERIALIZER, new RedisTransmitter(new RedisConnection(false, new String[]{"redis://localhost:6379"}, "")))
             ;
 

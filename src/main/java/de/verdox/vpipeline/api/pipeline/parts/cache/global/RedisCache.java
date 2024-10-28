@@ -3,8 +3,6 @@ package de.verdox.vpipeline.api.pipeline.parts.cache.global;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonSerializerBuilder;
 import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
@@ -13,6 +11,8 @@ import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import de.verdox.vpipeline.impl.util.RedisConnection;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.generic.SerializerBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.redisson.api.RBucket;
 import org.redisson.client.codec.StringCodec;
@@ -24,7 +24,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class RedisCache implements GlobalCache {
-    public static final JsonSerializer<RedisCache> SERIALIZER = JsonSerializerBuilder.create("redis_cache", RedisCache.class)
+    public static final Serializer<RedisCache> SERIALIZER = SerializerBuilder.create("redis_cache", RedisCache.class)
             .constructor(
                     new SerializableField<>("redis_connection", RedisConnection.SERIALIZER, RedisCache::getRedisConnection),
                     RedisCache::new

@@ -1,7 +1,7 @@
 package de.verdox.vpipeline.api;
 
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonSerializerBuilder;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.generic.SerializerBuilder;
 import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.messaging.RemoteMessageReceiver;
@@ -17,9 +17,9 @@ import java.util.concurrent.Executors;
 
 public interface NetworkParticipant extends Connection {
 
-    JsonSerializer<NetworkParticipant> SERIALIZER = JsonSerializerBuilder.create("participant", NetworkParticipant.class)
+    Serializer<NetworkParticipant> SERIALIZER = SerializerBuilder.create("participant", NetworkParticipant.class)
             .constructor(
-                    new SerializableField<>("identifier", JsonSerializer.Primitive.STRING, NetworkParticipant::getIdentifier),
+                    new SerializableField<>("identifier", Serializer.Primitive.STRING, NetworkParticipant::getIdentifier),
                     new SerializableField<>("pipeline", Pipeline.SERIALIZER, NetworkParticipant::pipeline),
                     new SerializableField<>("messagingService", MessagingService.SERIALIZER, NetworkParticipant::messagingService),
                     (s, pipeline, messagingService) -> new NetworkParticipantImpl(UUID.nameUUIDFromBytes(s.getBytes(StandardCharsets.UTF_8)), s, pipeline, messagingService, Executors.newSingleThreadScheduledExecutor())

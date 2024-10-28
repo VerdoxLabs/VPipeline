@@ -1,23 +1,23 @@
 package de.verdox.vpipeline.api.pipeline.parts.synchronizer.pipeline;
 
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonSerializerBuilder;
+
 import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.DataSynchronizer;
 import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
-import de.verdox.vpipeline.api.pipeline.parts.cache.global.RedisCache;
 import de.verdox.vpipeline.api.pipeline.parts.synchronizer.data.RedisDataDataSynchronizer;
 import de.verdox.vpipeline.impl.util.RedisConnection;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.generic.SerializerBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class RedisSynchronizingService implements SynchronizingService {
-    public static final JsonSerializer<RedisSynchronizingService> SERIALIZER = JsonSerializerBuilder.create("redis_cache", RedisSynchronizingService.class)
+    public static final Serializer<RedisSynchronizingService> SERIALIZER = SerializerBuilder.create("redis_cache", RedisSynchronizingService.class)
             .constructor(
                     new SerializableField<>("redis_connection", RedisConnection.SERIALIZER, RedisSynchronizingService::getRedisConnection),
                     RedisSynchronizingService::new

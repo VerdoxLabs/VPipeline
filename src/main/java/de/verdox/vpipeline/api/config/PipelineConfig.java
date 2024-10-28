@@ -3,6 +3,9 @@ package de.verdox.vpipeline.api.config;
 import com.google.gson.JsonObject;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.VNetwork;
+import de.verdox.vserializer.generic.SerializationContext;
+import de.verdox.vserializer.generic.SerializationElement;
+import de.verdox.vserializer.json.JsonSerializerContext;
 import de.verdox.vserializer.util.gson.JsonUtil;
 
 import java.io.File;
@@ -31,13 +34,14 @@ public class PipelineConfig {
 
         if (!file.exists()) {
             file.createNewFile();
-            JsonUtil.writeJsonObjectToFile(NetworkParticipant.SERIALIZER.toJson(defaultValue).getAsJsonObject(), file);
+            SerializationContext context = new JsonSerializerContext();
+            context.writeToFile(NetworkParticipant.SERIALIZER.serialize(context, defaultValue), file);
         }
     }
 
     public NetworkParticipant load() throws IOException {
-        JsonObject jsonObject = JsonUtil.readJsonFromFile(file);
-        return NetworkParticipant.SERIALIZER.fromJson(jsonObject);
+        SerializationElement element = new JsonSerializerContext().readFromFile(file);
+        return NetworkParticipant.SERIALIZER.deserialize(element);
     }
 
 }

@@ -1,8 +1,7 @@
 package de.verdox.vpipeline.api.pipeline.parts;
 
 import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
-import de.verdox.vserializer.json.JsonSerializer;
+import de.verdox.vserializer.generic.Serializer;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.storage.JsonFileStorage;
@@ -16,7 +15,7 @@ import java.util.Objects;
 
 public interface GlobalStorage extends DataProvider, Connection {
 
-    JsonSerializer<GlobalStorage> SERIALIZER = JsonSerializer.Selection.create("global_cache", GlobalStorage.class)
+    Serializer<GlobalStorage> SERIALIZER = Serializer.Selection.create("global_cache", GlobalStorage.class)
             .variant("json", JsonFileStorage.SERIALIZER, new JsonFileStorage(Path.of("storage")))
             .variant("mongo", MongoDBStorage.SERIALIZER, new MongoDBStorage("127.0.0.1", "pipeline", 27017, "root", "password", "https://mongoURL"))
             ;

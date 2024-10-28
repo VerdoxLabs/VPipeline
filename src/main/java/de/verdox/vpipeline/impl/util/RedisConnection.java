@@ -5,8 +5,8 @@ import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import de.verdox.vserializer.SerializableField;
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonSerializerBuilder;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.generic.SerializerBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.redisson.Redisson;
 import org.redisson.api.RTopic;
@@ -21,11 +21,11 @@ import java.util.Arrays;
 import java.util.Objects;
 
 public class RedisConnection implements SystemPart, Connection {
-    public static final JsonSerializer<RedisConnection> SERIALIZER = JsonSerializerBuilder.create("redis_connection", RedisConnection.class)
+    public static final Serializer<RedisConnection> SERIALIZER = SerializerBuilder.create("redis_connection", RedisConnection.class)
             .constructor(
-                    new SerializableField<>("clusterMode", JsonSerializer.Primitive.BOOLEAN, RedisConnection::isClusterMode),
-                    new SerializableField<>("addressArray", JsonSerializer.Collection.create(JsonSerializer.Primitive.STRING, ArrayList::new), redisConnection -> Arrays.stream(redisConnection.addressArray).toList()),
-                    new SerializableField<>("redisPassword", JsonSerializer.Primitive.STRING, RedisConnection::getRedisPassword),
+                    new SerializableField<>("clusterMode", Serializer.Primitive.BOOLEAN, RedisConnection::isClusterMode),
+                    new SerializableField<>("addressArray", Serializer.Collection.create(Serializer.Primitive.STRING, ArrayList::new), redisConnection -> Arrays.stream(redisConnection.addressArray).toList()),
+                    new SerializableField<>("redisPassword", Serializer.Primitive.STRING, RedisConnection::getRedisPassword),
                     (aBoolean, list, s) -> new RedisConnection(aBoolean, list.toArray(new String[0]), s)
             )
             .build();

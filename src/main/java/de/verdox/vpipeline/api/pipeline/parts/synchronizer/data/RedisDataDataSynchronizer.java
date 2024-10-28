@@ -10,11 +10,13 @@ import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.DataSynchronizer;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import de.verdox.vpipeline.impl.util.RedisConnection;
+import de.verdox.vserializer.generic.SerializationContext;
+import de.verdox.vserializer.json.JsonSerializationElement;
+import de.verdox.vserializer.json.JsonSerializerContext;
 import org.jetbrains.annotations.NotNull;
 import org.redisson.api.RTopic;
 import org.redisson.api.listener.MessageListener;
 
-import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -46,7 +48,7 @@ public class RedisDataDataSynchronizer implements DataSynchronizer {
 
     @Override
     public int sendDataBlockToNetwork(DataBlock dataBlock) {
-        String serializedDataBlock = DataSynchronizer.DATA_BLOCK_SERIALIZER.toJson(dataBlock).toString();
+        String serializedDataBlock = ((JsonSerializationElement) DataSynchronizer.DATA_BLOCK_SERIALIZER.serialize(new JsonSerializerContext(), dataBlock)).getJsonElement().toString();
         return (int) dataTopic.publish(serializedDataBlock);
     }
 
@@ -76,7 +78,8 @@ public class RedisDataDataSynchronizer implements DataSynchronizer {
         this.dataTopic = redisConnection.getTopic(AnnotationResolver.getDataStorageClassifier(dataClass), dataClass);
         this.messageListener = (channel, jsonString) -> {
             JsonElement jsonElement = JsonParser.parseString(jsonString);
-            DataBlock dataBlock = DataSynchronizer.DATA_BLOCK_SERIALIZER.fromJson(jsonElement);
+            JsonSerializerContext context = new JsonSerializerContext();
+            DataBlock dataBlock = DataSynchronizer.DATA_BLOCK_SERIALIZER.deserialize(context.toElement(jsonElement));
 
             if (dataBlock.getSenderUUID().equals(pipeline.getNetworkParticipant().getUUID()))
                 return;

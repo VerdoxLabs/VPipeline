@@ -2,8 +2,6 @@ package de.verdox.vpipeline.api.pipeline.datatypes;
 
 import com.google.gson.JsonParser;
 import de.verdox.vserializer.SerializableField;
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonSerializerBuilder;
 
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.NetworkLogger;
@@ -12,6 +10,8 @@ import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 import de.verdox.vpipeline.api.pipeline.parts.cache.local.DataAccess;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.generic.SerializerBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.Serializable;
@@ -19,7 +19,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 public interface DataSynchronizer extends SystemPart, Connection {
-    JsonSerializer<DataBlock> DATA_BLOCK_SERIALIZER = JsonSerializer.Types.create("datablock", DataBlock.class)
+    Serializer<DataBlock> DATA_BLOCK_SERIALIZER = Serializer.Types.create("datablock", DataBlock.class)
             .type("update", UpdateDataBlock.SERIALIZER)
             .type("creation", CreationDataBlock.SERIALIZER)
             .type("remove", RemoveDataBlock.SERIALIZER);
@@ -125,10 +125,10 @@ public interface DataSynchronizer extends SystemPart, Connection {
     }
 
     class RemoveDataBlock extends DataBlock {
-        public static final JsonSerializer<RemoveDataBlock> SERIALIZER = JsonSerializerBuilder.create("removeDataBlock", RemoveDataBlock.class)
+        public static final Serializer<RemoveDataBlock> SERIALIZER = SerializerBuilder.create("removeDataBlock", RemoveDataBlock.class)
                 .constructor(
-                        new SerializableField<>("senderUUID", JsonSerializer.UUID.INSTANCE, RemoveDataBlock::getSenderUUID),
-                        new SerializableField<>("dataUUID", JsonSerializer.UUID.INSTANCE, RemoveDataBlock::getDataUUID),
+                        new SerializableField<>("senderUUID", Serializer.UUID.INSTANCE, RemoveDataBlock::getSenderUUID),
+                        new SerializableField<>("dataUUID", Serializer.UUID.INSTANCE, RemoveDataBlock::getDataUUID),
                         RemoveDataBlock::new
                 )
                 .build();
@@ -158,11 +158,11 @@ public interface DataSynchronizer extends SystemPart, Connection {
     }
 
     class CreationDataBlock extends DataBlock {
-        public static final JsonSerializer<CreationDataBlock> SERIALIZER = JsonSerializerBuilder.create("creationDataBlock", CreationDataBlock.class)
+        public static final Serializer<CreationDataBlock> SERIALIZER = SerializerBuilder.create("creationDataBlock", CreationDataBlock.class)
                 .constructor(
-                        new SerializableField<>("senderUUID", JsonSerializer.UUID.INSTANCE, CreationDataBlock::getSenderUUID),
-                        new SerializableField<>("dataUUID", JsonSerializer.UUID.INSTANCE, CreationDataBlock::getDataUUID),
-                        new SerializableField<>("dataToUpdate", JsonSerializer.Primitive.STRING, CreationDataBlock::getDataToUpdate),
+                        new SerializableField<>("senderUUID", Serializer.UUID.INSTANCE, CreationDataBlock::getSenderUUID),
+                        new SerializableField<>("dataUUID", Serializer.UUID.INSTANCE, CreationDataBlock::getDataUUID),
+                        new SerializableField<>("dataToUpdate", Serializer.Primitive.STRING, CreationDataBlock::getDataToUpdate),
                         CreationDataBlock::new
                 )
                 .build();
@@ -202,11 +202,11 @@ public interface DataSynchronizer extends SystemPart, Connection {
     }
 
     class UpdateDataBlock extends DataBlock {
-        public static final JsonSerializer<UpdateDataBlock> SERIALIZER = JsonSerializerBuilder.create("updateDataBlock", UpdateDataBlock.class)
+        public static final Serializer<UpdateDataBlock> SERIALIZER = SerializerBuilder.create("updateDataBlock", UpdateDataBlock.class)
                 .constructor(
-                        new SerializableField<>("senderUUID", JsonSerializer.UUID.INSTANCE, UpdateDataBlock::getSenderUUID),
-                        new SerializableField<>("dataUUID", JsonSerializer.UUID.INSTANCE, UpdateDataBlock::getDataUUID),
-                        new SerializableField<>("dataToUpdate", JsonSerializer.Primitive.STRING, UpdateDataBlock::getDataToUpdate),
+                        new SerializableField<>("senderUUID", Serializer.UUID.INSTANCE, UpdateDataBlock::getSenderUUID),
+                        new SerializableField<>("dataUUID", Serializer.UUID.INSTANCE, UpdateDataBlock::getDataUUID),
+                        new SerializableField<>("dataToUpdate", Serializer.Primitive.STRING, UpdateDataBlock::getDataToUpdate),
                         UpdateDataBlock::new
                 )
                 .build();

@@ -2,7 +2,6 @@
   "identifier": "pipeline",
   "pipeline": {
     "globalCache": {
-      "nothing": "null",
       "redis": {
         "redis_connection": {
           "clusterMode": false,

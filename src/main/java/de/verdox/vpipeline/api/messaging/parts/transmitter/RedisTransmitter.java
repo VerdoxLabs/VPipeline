@@ -1,8 +1,8 @@
 package de.verdox.vpipeline.api.messaging.parts.transmitter;
 
 import com.google.gson.*;
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonSerializerBuilder;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.generic.SerializerBuilder;
 import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.MessagingService;
@@ -17,7 +17,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class RedisTransmitter implements Transmitter {
-    public static final JsonSerializer<RedisTransmitter> SERIALIZER = JsonSerializerBuilder.create("redis_transmitter", RedisTransmitter.class)
+    public static final Serializer<RedisTransmitter> SERIALIZER = SerializerBuilder.create("redis_transmitter", RedisTransmitter.class)
             .constructor(
                     new SerializableField<>("redis_connection", RedisConnection.SERIALIZER, RedisTransmitter::getRedisConnection),
                     RedisTransmitter::new

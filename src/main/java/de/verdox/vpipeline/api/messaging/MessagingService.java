@@ -1,24 +1,15 @@
 package de.verdox.vpipeline.api.messaging;
 
-import com.google.gson.GsonBuilder;
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonSerializerBuilder;
-import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.messaging.instruction.Instruction;
 import de.verdox.vpipeline.api.messaging.instruction.ResponseCollector;
-import de.verdox.vpipeline.api.pipeline.core.Pipeline;
-import de.verdox.vpipeline.api.pipeline.datatypes.SynchronizingService;
-import de.verdox.vpipeline.api.pipeline.parts.GlobalCache;
-import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
-import de.verdox.vpipeline.api.pipeline.parts.NetworkDataLockingService;
-import de.verdox.vpipeline.api.pipeline.parts.cache.local.HashedLocalCache;
+import de.verdox.vpipeline.api.pipeline.core.SystemPart;
 import de.verdox.vpipeline.api.ticket.TicketPropagator;
 import de.verdox.vpipeline.impl.messaging.MessagingServiceImpl;
-import de.verdox.vpipeline.impl.messaging.ResponseCollectorImpl;
-import de.verdox.vpipeline.api.pipeline.core.SystemPart;
-import de.verdox.vpipeline.impl.pipeline.core.PipelineImpl;
+import de.verdox.vserializer.SerializableField;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.generic.SerializerBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Set;
@@ -27,9 +18,9 @@ import java.util.function.Consumer;
 
 public interface MessagingService extends SystemPart, Connection {
 
-    JsonSerializer<MessagingService> SERIALIZER = JsonSerializerBuilder.create("messagingService", MessagingService.class)
+    Serializer<MessagingService> SERIALIZER = SerializerBuilder.create("messagingService", MessagingService.class)
             .constructor(
-                    new SerializableField<>("identifier", JsonSerializer.Primitive.STRING, MessagingService::getSessionIdentifier),
+                    new SerializableField<>("identifier", Serializer.Primitive.STRING, MessagingService::getSessionIdentifier),
                     new SerializableField<>("transmitter", Transmitter.SERIALIZER, MessagingService::getTransmitter),
                     MessagingServiceImpl::new
             )

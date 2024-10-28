@@ -1,19 +1,19 @@
 package de.verdox.vpipeline.api.pipeline.parts.lock;
 
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonSerializerBuilder;
 import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.pipeline.parts.NetworkDataLockingService;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import de.verdox.vpipeline.impl.util.RedisConnection;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.generic.SerializerBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 
 public class RedisNetworkDataLockingService implements NetworkDataLockingService {
-    public static final JsonSerializer<RedisNetworkDataLockingService> SERIALIZER = JsonSerializerBuilder.create("redis_network_data_locking_service", RedisNetworkDataLockingService.class)
+    public static final Serializer<RedisNetworkDataLockingService> SERIALIZER = SerializerBuilder.create("redis_network_data_locking_service", RedisNetworkDataLockingService.class)
             .constructor(
                     new SerializableField<>("redis_connection", RedisConnection.SERIALIZER, RedisNetworkDataLockingService::getRedisConnection),
                     RedisNetworkDataLockingService::new

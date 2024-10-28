@@ -1,8 +1,8 @@
 package de.verdox.vpipeline.api.pipeline.core;
 
 import com.google.gson.GsonBuilder;
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonSerializerBuilder;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.generic.SerializerBuilder;
 import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.NetworkParticipant;
@@ -25,7 +25,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 public interface Pipeline extends SystemPart, Connection {
-    JsonSerializer<Pipeline> SERIALIZER = JsonSerializerBuilder.create("pipeline", Pipeline.class)
+    Serializer<Pipeline> SERIALIZER = SerializerBuilder.create("pipeline", Pipeline.class)
             .constructor(
                     new SerializableField<>("globalCache", GlobalCache.SERIALIZER, Pipeline::getGlobalCache),
                     new SerializableField<>("storage", GlobalStorage.SERIALIZER, Pipeline::getGlobalStorage),

@@ -3,13 +3,13 @@ package de.verdox.vpipeline.api.pipeline.parts.storage;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonSerializerBuilder;
 import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.generic.SerializerBuilder;
 import jodd.io.FileNameUtil;
 import org.jetbrains.annotations.NotNull;
 
@@ -22,9 +22,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class JsonFileStorage implements GlobalStorage {
-    public static final JsonSerializer<JsonFileStorage> SERIALIZER = JsonSerializerBuilder.create("json_file_storage", JsonFileStorage.class)
+    public static final Serializer<JsonFileStorage> SERIALIZER = SerializerBuilder.create("json_file_storage", JsonFileStorage.class)
             .constructor(
-                    new SerializableField<>("path", JsonSerializer.Primitive.STRING, jsonFileStorage -> jsonFileStorage.path.toString()),
+                    new SerializableField<>("path", Serializer.Primitive.STRING, jsonFileStorage -> jsonFileStorage.path.toString()),
                     s -> new JsonFileStorage(Path.of(s))
             )
             .build();

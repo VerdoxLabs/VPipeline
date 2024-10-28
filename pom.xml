@@ -6,7 +6,7 @@
 
     <groupId>de.verdox.vpipeline</groupId>
     <artifactId>VPipeline</artifactId>
-    <version>1.3</version>
+    <version>1.4</version>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
@@ -40,7 +40,7 @@
         <dependency>
             <groupId>de.verdox.vserializer</groupId>
             <artifactId>vserializer</artifactId>
-            <version>1.0</version>
+            <version>LATEST</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

@@ -3,13 +3,14 @@ package de.verdox.vpipeline.api.pipeline.datatypes;
 import com.google.gson.GsonBuilder;
 import com.google.gson.InstanceCreator;
 import com.google.gson.JsonElement;
-import de.verdox.vserializer.json.JsonSerializer;
-import de.verdox.vserializer.json.JsonUpdateMethodNotSupportedException;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
+import de.verdox.vserializer.generic.Serializer;
+import de.verdox.vserializer.json.JsonSerializationElement;
+import de.verdox.vserializer.json.JsonSerializerContext;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,7 +29,7 @@ public abstract class PipelineData implements IPipelineData {
     private transient long lastUse = System.currentTimeMillis();
     private transient final AttachedPipeline attachedPipeline;
     @Nullable
-    private JsonSerializer<IPipelineData> customSerializer;
+    private Serializer<IPipelineData> customSerializer;
 
     public PipelineData(@NotNull Pipeline pipeline, @NotNull UUID objectUUID) {
         this.attachedPipeline = new AttachedPipeline(gsonBuilder -> gsonBuilder
@@ -51,7 +52,7 @@ public abstract class PipelineData implements IPipelineData {
     }
 
     private void searchForCustomSerializer() {
-        JsonSerializer<IPipelineData> customJsonSerializer = getCustomJsonSerializer();
+        Serializer<IPipelineData> customJsonSerializer = getCustomSerializer();
         if(customJsonSerializer != null){
             if(!customJsonSerializer.getType().equals(getClass()))
                 throw new IllegalStateException("The provided custom json serializer for the pipeline data class "+getClass().getName()+" does only accept objects of type "+customJsonSerializer.getType()+". Please make sure that these types match!");
@@ -68,7 +69,7 @@ public abstract class PipelineData implements IPipelineData {
     public JsonElement serialize() {
         try {
             if(this.customSerializer != null)
-                return customSerializer.toJson(this);
+                return ((JsonSerializationElement)customSerializer.serialize(new JsonSerializerContext(),this)).getJsonElement();
             return attachedPipeline.getGson().toJsonTree(this);
         } catch (Throwable e) {
             NetworkLogger.warning("Error while serializing " + getObjectUUID() + " | " + getClass().getSimpleName());
@@ -83,7 +84,7 @@ public abstract class PipelineData implements IPipelineData {
             if (AnnotationResolver.getDataProperties(getClass()).debugMode())
                 NetworkLogger.debug("Updating " + this);
             if(this.customSerializer != null)
-                customSerializer.updateLiveObjectFromJson(this, jsonObject);
+                customSerializer.updateLiveObjectFromJson(this, new JsonSerializerContext().toElement(jsonObject));
             else
                 attachedPipeline.getGson().fromJson(jsonObject, getClass());
         } catch (Throwable e) {
