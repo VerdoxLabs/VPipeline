@@ -6,18 +6,21 @@ import com.google.gson.JsonParser;
 import com.mongodb.*;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import de.verdox.vserializer.SerializableField;
 import de.verdox.vpipeline.api.Connection;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
+import de.verdox.vserializer.SerializableField;
 import de.verdox.vserializer.generic.Serializer;
 import de.verdox.vserializer.generic.SerializerBuilder;
 import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 
 public class MongoDBStorage implements GlobalStorage, Connection {
     public static final Serializer<MongoDBStorage> SERIALIZER = SerializerBuilder.create("mongo_db_storage", MongoDBStorage.class)
@@ -171,12 +174,17 @@ public class MongoDBStorage implements GlobalStorage, Connection {
 
         var clientOptions = new MongoClientOptions.Builder();
 
-        if (this.url != null && !this.url.isEmpty())
+        if (this.url != null && !this.url.isEmpty()) {
+            NetworkLogger.info("Connecting to MongoDB GlobalStorage with url:" + url);
             this.mongoClient = new MongoClient(new MongoClientURI(url));
-        else if (user.isEmpty() && password.isEmpty())
+        } else if (user.isEmpty() && password.isEmpty()) {
+            NetworkLogger.info("Connecting to MongoDB GlobalStorage with host " + host + ":" + port + " using no credentials");
             this.mongoClient = new MongoClient(new ServerAddress(host, port), clientOptions.build());
-        else
+        } else {
+            NetworkLogger.info("Connecting to MongoDB GlobalStorage with host " + host + ":" + port + " using credentials");
             this.mongoClient = new MongoClient(new ServerAddress(host, port), MongoCredential.createScramSha256Credential(user, database, password.toCharArray()), clientOptions.build());
+        }
+        NetworkLogger.info("Searching for database " + database + " in MongoDB storage...");
         this.mongoDatabase = mongoClient.getDatabase(database);
         NetworkLogger.info("MongoDB GlobalStorage connected");
     }

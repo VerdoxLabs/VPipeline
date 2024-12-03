@@ -22,10 +22,6 @@
             <id>maven-central</id>
             <url>https://repo1.maven.org/maven2/</url>
         </repository>
-        <repository>
-            <id>verdox-labs-github-vserializer</id>
-            <url>https://maven.pkg.github.com/VerdoxLabs/VSerializer</url>
-        </repository>
     </repositories>
 
     <dependencies>
@@ -118,7 +114,7 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <version>5.9.2</version>
-            <scope>compile</scope>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.reflections</groupId>

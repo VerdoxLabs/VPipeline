@@ -127,7 +127,7 @@ public class PipelineSyncTest {
     }
 
     /**
-     * Checks if data that was created and updated has the correct state on the remote pipeline
+     * Checks if data that was created, updated, and has the correct state on the remote pipeline
      */
     @Test
     public void testAlterDataCheckOnRemote1() {
