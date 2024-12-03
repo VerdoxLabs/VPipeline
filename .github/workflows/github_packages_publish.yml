@@ -9,6 +9,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
 
+    env:
+      MAVEN_USERNAME: "runner"
+      MAVEN_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -26,6 +30,3 @@ jobs:
 
       - name: Publish package
         run: ./gradlew publish
-        env:
-          MAVEN_USERNAME: ${{ secrets.ACTOR }}
-          MAVEN_PASSWORD: ${{ secrets.TOKEN }}
