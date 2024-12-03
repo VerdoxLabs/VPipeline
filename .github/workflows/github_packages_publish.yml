@@ -23,10 +23,10 @@ jobs:
           distribution: 'temurin'
 
       - name: Install dependencies and build
-        run: ./gradlew build
+        run: ./gradlew build --stacktrace
 
       - name: Run tests
-        run: ./gradlew test
+        run: ./gradlew test --stacktrace
 
       - name: Publish package
-        run: ./gradlew publish
+        run: ./gradlew publish --stacktrace
