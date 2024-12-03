@@ -11,7 +11,7 @@ jobs:
 
     env:
       MAVEN_USERNAME: "runner"
-      MAVEN_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      MAVEN_PASSWORD: ${{ secrets.TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
