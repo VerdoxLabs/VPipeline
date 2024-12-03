@@ -14,27 +14,6 @@ dependencies {
 }
 
 ```
-
-
-### Note: This Page is under heavy construction at the moment.
-I am also working on a wiki right now! 
-
-## Importing the API using Maven
-
-[Choose latest Tag on Jitpack](https://jitpack.io/#VCore-Minecraft/VPipeline)
-
-	<repositories>
-		<repository>
-		    <id>jitpack.io</id>
-		    <url>https://jitpack.io</url>
-		</repository>
-	</repositories>
- 
- 	<dependency>
-	    <groupId>com.github.VCore-Minecraft</groupId>
-	    <artifactId>VPipeline</artifactId>
-	    <version>Tag</version>
-	</dependency>
 	
 
 ## Contributions:
@@ -44,7 +23,7 @@ I am also working on a wiki right now!
 ## Special thanks to
 ![YourKit](https://www.yourkit.com/images/yklogo.png)
 
-For there awesome Java Profiling Tool used to make VCore even better!
+For there awesome Java Profiling Tool used to make this project even better!
 
 YourKit supports open source projects with innovative and intelligent tools
 for monitoring and profiling Java and .NET applications.
