@@ -7,11 +7,8 @@ repositories {
     mavenCentral()
     mavenLocal()
     maven {
-        url = uri("https://maven.pkg.github.com/VerdoxLabs/VSerializer")
-        credentials {
-            username = project.findProperty("gpr.user") as String? ?: System.getenv("MAVEN_USERNAME")
-            password = project.findProperty("gpr.key") as String? ?: System.getenv("MAVEN_PASSWORD")
-        }
+        name = "Verdox Reposilite"
+        url = uri("https://repo.verdox.de/snapshots")
     }
 }
 
@@ -23,7 +20,7 @@ java {
 }
 
 dependencies {
-    implementation("de.verdox:vserializer:+")
+    implementation("de.verdox:vserializer:1.0.5-SNAPSHOT")
 
     compileOnly("org.jetbrains:annotations:26.0.1")
     implementation("commons-codec:commons-codec:1.15")
@@ -90,11 +87,11 @@ publishing {
     }
     repositories {
         maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/verdoxlabs/vpipeline")
+            name = "verdox"
+            url = uri("https://repo.verdox.de/snapshots")
             credentials {
-                username = System.getenv("MAVEN_USERNAME")
-                password = System.getenv("MAVEN_PASSWORD")
+                username = (findProperty("reposilite.verdox.user") ?: System.getenv("REPO_USER")).toString()
+                password = (findProperty("reposilite.verdox.key") ?: System.getenv("REPO_PASSWORD")).toString()
             }
         }
     }

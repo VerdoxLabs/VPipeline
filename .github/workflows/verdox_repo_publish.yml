@@ -1,17 +1,17 @@
-name: Publish package to GitHub Packages
+name: Publish package verdox repo
 
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   publish:
     runs-on: ubuntu-latest
 
     env:
-      MAVEN_USERNAME: "runner"
-      MAVEN_PASSWORD: ${{ secrets.TOKEN }}
+      REPO_USER: ${{ secrets.REPO_USER }}
+      REPO_PASSWORD: ${{ secrets.REPO_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -22,11 +22,8 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Install dependencies and build
-        run: ./gradlew build --stacktrace
-
       - name: Run tests
-        run: ./gradlew test --stacktrace
+        run: ./gradlew test
 
       - name: Publish package
-        run: ./gradlew publish --stacktrace
+        run: ./gradlew publish
