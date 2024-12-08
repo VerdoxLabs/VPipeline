@@ -4,10 +4,9 @@
 VPipeline is a library is used to synchronize data across multiple nodes.
 
 ### Setup ###
-In build.gradle.kts
 ```kotlin
 repositories {
-    maven("https://maven.pkg.github.com/VerdoxLabs/VPipeline")
+    maven("https://repo.verdox.de/snapshots")
 }
 dependencies {
     implementation("de.verdox:vpipeline:+") // If you want the latest version use '+'. Else you must specify a version.
