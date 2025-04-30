@@ -20,7 +20,7 @@ java {
 }
 
 dependencies {
-    implementation("de.verdox:vserializer:1.0.5-SNAPSHOT")
+    implementation("de.verdox:vserializer:1.2.3-SNAPSHOT")
 
     compileOnly("org.jetbrains:annotations:26.0.1")
     implementation("commons-codec:commons-codec:1.15")
@@ -35,6 +35,7 @@ dependencies {
     implementation("com.zaxxer:HikariCP:5.0.1")
     implementation("org.reflections:reflections:0.10.2")
 
+    testImplementation("de.verdox:vserializer:1.2.3-SNAPSHOT")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.2")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.2")
     testImplementation("com.github.kstyrc:embedded-redis:0.6")
