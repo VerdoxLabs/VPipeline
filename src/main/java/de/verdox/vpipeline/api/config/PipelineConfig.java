@@ -26,6 +26,7 @@ public class PipelineConfig {
 
     public PipelineConfig(File file, NetworkParticipant defaultValue, boolean overwrite) throws IOException {
         this.file = file;
+
         file.getParentFile().mkdirs();
 
         if (overwrite) {
@@ -33,7 +34,6 @@ public class PipelineConfig {
         }
 
         if (!file.exists()) {
-            file.createNewFile();
             SerializationContext context = new JsonSerializerContext();
             context.writeToFile(NetworkParticipant.SERIALIZER.serialize(context, defaultValue), file);
         }
