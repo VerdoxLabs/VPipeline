@@ -4,12 +4,11 @@ plugins {
 }
 
 repositories {
-    mavenCentral()
-    mavenLocal()
     maven {
         name = "Verdox Reposilite"
         url = uri("https://repo.verdox.de/snapshots")
     }
+    mavenCentral()
 }
 
 java {
@@ -20,7 +19,7 @@ java {
 }
 
 dependencies {
-    implementation("de.verdox:vserializer:1.2.3-SNAPSHOT")
+    compileOnly("de.verdox:vserializer:1.2.3-SNAPSHOT")
 
     compileOnly("org.jetbrains:annotations:26.0.1")
     implementation("commons-codec:commons-codec:1.15")
