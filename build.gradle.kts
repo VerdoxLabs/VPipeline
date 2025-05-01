@@ -1,4 +1,5 @@
 plugins {
+    id("java-library")
     id("java")
     id("maven-publish")
 }
@@ -19,20 +20,20 @@ java {
 }
 
 dependencies {
-    compileOnly("de.verdox:vserializer:1.2.3-SNAPSHOT")
+    api("de.verdox:vserializer:1.2.3-SNAPSHOT")
 
     compileOnly("org.jetbrains:annotations:26.0.1")
-    implementation("commons-codec:commons-codec:1.15")
-    implementation("com.google.code.gson:gson:2.10.1")
-    implementation("commons-io:commons-io:2.14.0")
-    implementation("com.google.guava:guava:32.0.0-android")
-    implementation("org.redisson:redisson-all:3.20.0")
-    implementation("org.mongodb:mongo-java-driver:3.12.12")
-    implementation("org.mongodb:bson:4.9.0")
-    implementation("org.jetbrains:annotations:24.0.1")
-    implementation("mysql:mysql-connector-java:8.0.33")
-    implementation("com.zaxxer:HikariCP:5.0.1")
-    implementation("org.reflections:reflections:0.10.2")
+    api("commons-codec:commons-codec:1.15")
+    api("com.google.code.gson:gson:2.10.1")
+    api("commons-io:commons-io:2.14.0")
+    api("com.google.guava:guava:32.0.0-android")
+    api("org.redisson:redisson-all:3.20.0")
+    api("org.mongodb:mongo-java-driver:3.12.12")
+    api("org.mongodb:bson:4.9.0")
+    api("org.jetbrains:annotations:24.0.1")
+    api("mysql:mysql-connector-java:8.0.33")
+    api("com.zaxxer:HikariCP:5.0.1")
+    api("org.reflections:reflections:0.10.2")
 
     testImplementation("de.verdox:vserializer:1.2.3-SNAPSHOT")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.2")
