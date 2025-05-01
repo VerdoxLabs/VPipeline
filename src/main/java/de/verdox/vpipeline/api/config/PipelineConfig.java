@@ -1,12 +1,10 @@
 package de.verdox.vpipeline.api.config;
 
-import com.google.gson.JsonObject;
 import de.verdox.vpipeline.api.NetworkParticipant;
 import de.verdox.vpipeline.api.VNetwork;
 import de.verdox.vserializer.generic.SerializationContext;
 import de.verdox.vserializer.generic.SerializationElement;
 import de.verdox.vserializer.json.JsonSerializerContext;
-import de.verdox.vserializer.util.gson.JsonUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,9 +26,11 @@ public class PipelineConfig {
 
     public PipelineConfig(File file, NetworkParticipant defaultValue, boolean overwrite) throws IOException {
         this.file = file;
+        file.getParentFile().mkdirs();
 
-        if (overwrite)
+        if (overwrite) {
             file.delete();
+        }
 
         if (!file.exists()) {
             file.createNewFile();
