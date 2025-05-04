@@ -178,8 +178,9 @@ public class HashedLocalCache implements LocalCache {
     public <T extends IPipelineData> void subscribe(@NotNull Class<? extends T> dataClass, @NotNull UUID objectUUID, DataSubscriber<T, ?> subscriber) {
         subscriber.linkToLocalCache(dataClass, objectUUID);
         T data = loadObject(dataClass, objectUUID);
-        if(data != null)
+        if(data != null) {
             subscriber.update(data);
+        }
         subscribers.computeIfAbsent(dataClass, aClass -> new ConcurrentHashMap<>())
                 .computeIfAbsent(objectUUID, uuid -> new HashSet<>())
                 .add(subscriber);
