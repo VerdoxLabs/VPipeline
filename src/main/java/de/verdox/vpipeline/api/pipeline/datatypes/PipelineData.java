@@ -52,11 +52,11 @@ public abstract class PipelineData implements IPipelineData {
     }
 
     private void searchForCustomSerializer() {
-        Serializer<IPipelineData> customJsonSerializer = getCustomSerializer();
+        Serializer<? extends IPipelineData> customJsonSerializer = getCustomSerializer();
         if(customJsonSerializer != null){
             if(!customJsonSerializer.getType().equals(getClass()))
                 throw new IllegalStateException("The provided custom json serializer for the pipeline data class "+getClass().getName()+" does only accept objects of type "+customJsonSerializer.getType()+". Please make sure that these types match!");
-            this.customSerializer = customJsonSerializer;
+            this.customSerializer = (Serializer<IPipelineData>) customJsonSerializer;
         }
     }
 

@@ -96,7 +96,7 @@ public interface IPipelineData {
     AttachedPipeline getAttachedPipeline();
 
     @Nullable
-    default Serializer<IPipelineData> getCustomSerializer(){
+    default Serializer<? extends IPipelineData> getCustomSerializer(){
         return null;
     }
 }
