@@ -29,7 +29,7 @@ public abstract class PipelineData implements IPipelineData {
     private transient long lastUse = System.currentTimeMillis();
     private transient final AttachedPipeline attachedPipeline;
     @Nullable
-    private Serializer<IPipelineData> customSerializer;
+    private transient Serializer<IPipelineData> customSerializer;
 
     public PipelineData(@NotNull Pipeline pipeline, @NotNull UUID objectUUID) {
         this.attachedPipeline = new AttachedPipeline(gsonBuilder -> gsonBuilder
