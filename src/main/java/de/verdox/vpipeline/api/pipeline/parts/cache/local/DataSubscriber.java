@@ -66,7 +66,7 @@ public abstract class DataSubscriber<D extends IPipelineData, V> {
         return currentValue;
     }
 
-    private static <D extends IPipelineData, V> DataSubscriber<D, V> createSubscriber(Function<D, V> getter, Consumer<V> onUpdate, V defaultValue) {
+    public static <D extends IPipelineData, V> DataSubscriber<D, V> createSubscriber(Function<D, V> getter, Consumer<V> onUpdate, V defaultValue) {
         return new DataSubscriber<>(getter, defaultValue) {
             @Override
             protected void onUpdate(V newValue) {
