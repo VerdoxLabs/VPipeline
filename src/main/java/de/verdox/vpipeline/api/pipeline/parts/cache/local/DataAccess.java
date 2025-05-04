@@ -35,7 +35,7 @@ public class DataAccess<T extends IPipelineData> {
         localCache.notifySubscribers(updatedObject);
     }
 
-    private boolean killed() {
+    public boolean killed() {
         return !localCache.dataExist(type, objectUUID);
     }
 
