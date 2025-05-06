@@ -3,6 +3,7 @@ package de.verdox.vpipeline.api.pipeline.datatypes;
 import com.google.gson.GsonBuilder;
 import com.google.gson.InstanceCreator;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
@@ -19,6 +20,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
 @PipelineDataProperties
 public abstract class PipelineData implements IPipelineData {
@@ -53,9 +55,9 @@ public abstract class PipelineData implements IPipelineData {
 
     private void searchForCustomSerializer() {
         Serializer<? extends IPipelineData> customJsonSerializer = getCustomSerializer();
-        if(customJsonSerializer != null){
-            if(!customJsonSerializer.getType().equals(getClass()))
-                throw new IllegalStateException("The provided custom json serializer for the pipeline data class "+getClass().getName()+" does only accept objects of type "+customJsonSerializer.getType()+". Please make sure that these types match!");
+        if (customJsonSerializer != null) {
+            if (!customJsonSerializer.getType().equals(getClass()))
+                throw new IllegalStateException("The provided custom json serializer for the pipeline data class " + getClass().getName() + " does only accept objects of type " + customJsonSerializer.getType() + ". Please make sure that these types match!");
             this.customSerializer = (Serializer<IPipelineData>) customJsonSerializer;
         }
     }
@@ -68,13 +70,13 @@ public abstract class PipelineData implements IPipelineData {
     @Override
     public JsonElement serialize() {
         try {
-            if(this.customSerializer != null)
-                return ((JsonSerializationElement)customSerializer.serialize(new JsonSerializerContext(),this)).getJsonElement();
+            if (this.customSerializer != null) {
+                return ((JsonSerializationElement) customSerializer.serialize(new JsonSerializerContext(), this)).getJsonElement();
+            }
             return attachedPipeline.getGson().toJsonTree(this);
         } catch (Throwable e) {
-            NetworkLogger.warning("Error while serializing " + getObjectUUID() + " | " + getClass().getSimpleName());
-            e.printStackTrace();
-            throw new RuntimeException(e);
+            NetworkLogger.getLogger().log(Level.WARNING, "Error while serializing " + getObjectUUID() + " | " + getClass().getSimpleName(), e);
+            return new JsonObject();
         }
     }
 
@@ -83,14 +85,14 @@ public abstract class PipelineData implements IPipelineData {
         try {
             if (AnnotationResolver.getDataProperties(getClass()).debugMode())
                 NetworkLogger.debug("Updating " + this);
-            if(this.customSerializer != null)
+            if (this.customSerializer != null) {
                 customSerializer.updateLiveObjectFromJson(this, new JsonSerializerContext().toElement(jsonObject));
-            else
+            }
+            else {
                 attachedPipeline.getGson().fromJson(jsonObject, getClass());
+            }
         } catch (Throwable e) {
-            NetworkLogger.warning("Error while deserializing " + getObjectUUID() + " | " + getClass().getSimpleName());
-            e.printStackTrace();
-            throw new RuntimeException(e);
+            NetworkLogger.getLogger().log(Level.WARNING, "Error while deserializing " + getObjectUUID() + " | " + getClass().getSimpleName(), e);
         }
     }
 
@@ -115,8 +117,9 @@ public abstract class PipelineData implements IPipelineData {
             S dataObject = dataClass
                     .getDeclaredConstructor(Pipeline.class, UUID.class)
                     .newInstance(pipeline, objectUUID);
-            if(dataObject instanceof PipelineData pipelineData)
+            if (dataObject instanceof PipelineData pipelineData) {
                 pipelineData.searchForCustomSerializer();
+            }
             dataObject.updateLastUsage();
             return dataClass.cast(dataObject);
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
@@ -135,7 +138,7 @@ public abstract class PipelineData implements IPipelineData {
         private final AttachedPipeline attachedPipeline = new AttachedPipeline(GsonBuilder::create);
         private final Class<? extends IPipelineData> type;
 
-        public DummyDataDataSynchronizer(@NotNull Pipeline pipeline, @NotNull Class<? extends IPipelineData> type){
+        public DummyDataDataSynchronizer(@NotNull Pipeline pipeline, @NotNull Class<? extends IPipelineData> type) {
             this.type = type;
             attachedPipeline.attachPipeline(pipeline);
         }
