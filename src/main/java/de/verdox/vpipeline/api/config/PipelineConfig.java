@@ -27,7 +27,9 @@ public class PipelineConfig {
     public PipelineConfig(File file, NetworkParticipant defaultValue, boolean overwrite) throws IOException {
         this.file = file;
 
-        file.getParentFile().mkdirs();
+        if(file.getParentFile() != null) {
+            file.getParentFile().mkdirs();
+        }
 
         if (overwrite) {
             file.delete();
