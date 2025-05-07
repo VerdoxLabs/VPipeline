@@ -24,6 +24,7 @@ import java.util.logging.Level;
 
 @PipelineDataProperties
 public abstract class PipelineData implements IPipelineData {
+    public static final JsonSerializerContext JSON_SERIALIZER_CONTEXT = new JsonSerializerContext();
     private final UUID objectUUID;
     private transient final DataSynchronizer dataSynchronizer;
     private transient final long cleanTime;
@@ -74,7 +75,7 @@ public abstract class PipelineData implements IPipelineData {
                 searchForCustomSerializer();
             }
             if (this.customSerializer != null) {
-                return ((JsonSerializationElement) customSerializer.serialize(new JsonSerializerContext(), this)).getJsonElement();
+                return ((JsonSerializationElement) customSerializer.serialize(JSON_SERIALIZER_CONTEXT, this)).getJsonElement();
             }
             return attachedPipeline.getGson().toJsonTree(this);
         } catch (Throwable e) {
@@ -93,7 +94,7 @@ public abstract class PipelineData implements IPipelineData {
                 searchForCustomSerializer();
             }
             if (this.customSerializer != null) {
-                customSerializer.updateLiveObjectFromJson(this, new JsonSerializerContext().toElement(jsonObject));
+                customSerializer.updateLiveObjectFromJson(this, JSON_SERIALIZER_CONTEXT.toElement(jsonObject));
             }
             else {
                 attachedPipeline.getGson().fromJson(jsonObject, getClass());
