@@ -70,6 +70,9 @@ public abstract class PipelineData implements IPipelineData {
     @Override
     public JsonElement serialize() {
         try {
+            if(this.customSerializer == null) {
+                searchForCustomSerializer();
+            }
             if (this.customSerializer != null) {
                 return ((JsonSerializationElement) customSerializer.serialize(new JsonSerializerContext(), this)).getJsonElement();
             }
@@ -83,8 +86,12 @@ public abstract class PipelineData implements IPipelineData {
     @Override
     public void deserialize(JsonElement jsonObject) {
         try {
-            if (AnnotationResolver.getDataProperties(getClass()).debugMode())
+            if (AnnotationResolver.getDataProperties(getClass()).debugMode()) {
                 NetworkLogger.debug("Updating " + this);
+            }
+            if(this.customSerializer == null) {
+                searchForCustomSerializer();
+            }
             if (this.customSerializer != null) {
                 customSerializer.updateLiveObjectFromJson(this, new JsonSerializerContext().toElement(jsonObject));
             }
