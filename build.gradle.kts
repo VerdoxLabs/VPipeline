@@ -26,7 +26,7 @@ dependencies {
     api("commons-codec:commons-codec:1.15")
     api("com.google.code.gson:gson:2.10.1")
     api("commons-io:commons-io:2.14.0")
-    api("com.google.guava:guava:32.0.0-android")
+    api("com.google.guava:guava:32.0.1-android")
     api("org.redisson:redisson-all:3.20.0")
     api("org.mongodb:mongo-java-driver:3.12.12")
     api("org.mongodb:bson:4.9.0")
