@@ -7,10 +7,12 @@ import de.verdox.vpipeline.api.NetworkLogger;
 import de.verdox.vpipeline.api.messaging.MessagingService;
 import de.verdox.vpipeline.api.ticket.Ticket;
 import de.verdox.vpipeline.api.ticket.TicketPropagator;
+import net.bytebuddy.implementation.bytecode.Throw;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 
 public class TicketPropagatorImpl implements TicketPropagator {
     private final Map<String, Class<? extends Ticket>> registeredTicketTypes = new HashMap<>();
@@ -45,8 +47,13 @@ public class TicketPropagatorImpl implements TicketPropagator {
         if (!tickets.containsKey(ticketType))
             return set;
         tickets.get(ticketType).removeIf(ticket -> {
-            ticket.triggerDataPreloadBlocking();
-            return tryConsumeTicket(ticket, (Set<Ticket>) set, inputParameters);
+            try {
+                ticket.triggerDataPreloadBlocking();
+                return tryConsumeTicket(ticket, (Set<Ticket>) set, inputParameters);
+            } catch (Throwable e) {
+                LOGGER.log(Level.SEVERE, "Could not preload data and consume ticket " + ticket.getClass() + " (" + ticket + ")", e);
+                return true;
+            }
         });
         if (tickets.get(ticketType).isEmpty())
             tickets.remove(ticketType);
@@ -96,7 +103,13 @@ public class TicketPropagatorImpl implements TicketPropagator {
 
     @Override
     public void triggerTicketDataPreloadGroup(Class<? extends Ticket> ticketType) {
-        tickets.entrySet().stream().filter(classSetEntry -> ticketType.isAssignableFrom(classSetEntry.getKey())).parallel().flatMap(classSetEntry -> classSetEntry.getValue().stream()).forEach(Ticket::triggerDataPreloadBlocking);
+        tickets.entrySet().stream().filter(classSetEntry -> ticketType.isAssignableFrom(classSetEntry.getKey())).parallel().flatMap(classSetEntry -> classSetEntry.getValue().stream()).forEach(ticket -> {
+            try {
+                ticket.triggerDataPreloadBlocking();
+            } catch (Throwable e) {
+                LOGGER.log(Level.SEVERE, "There was an error in the ticket " + ticket.getClass().getSimpleName() + "(" + ticket + ")", e);
+            }
+        });
     }
 
     @Override
@@ -120,7 +133,7 @@ public class TicketPropagatorImpl implements TicketPropagator {
         addTicketToCache(ticketUUID, ticket);
     }
 
-    public void addTicketToCache(UUID uuid, Ticket ticket) {
+    private void addTicketToCache(UUID uuid, Ticket ticket) {
         tickets.computeIfAbsent(ticket.getClass(), aClass -> ConcurrentHashMap.newKeySet(100)).add(ticket);
         uuidToTicketMapping.put(uuid, ticket);
         ticketToUUIDMapping.put(ticket, uuid);
@@ -137,15 +150,20 @@ public class TicketPropagatorImpl implements TicketPropagator {
     }
 
     private <T extends Ticket> boolean tryConsumeTicket(T ticket, Set<T> consumedSet, Object... inputParameters) {
-        Ticket.TriState triState = ticket.apply(inputParameters);
-        if (triState == null)
-            return false;
-        boolean value = triState.evaluate();
-        if (value) {
-            UUID ticketUUID = ticketToUUIDMapping.get(ticket);
-            this.messagingService.sendInstruction(new TicketTakeInstruction(UUID.randomUUID(), ticketUUID));
-            consumedSet.add(ticket);
+        try {
+            Ticket.TriState triState = ticket.apply(inputParameters);
+            if (triState == null)
+                return false;
+            boolean value = triState.evaluate();
+            if (value) {
+                UUID ticketUUID = ticketToUUIDMapping.get(ticket);
+                this.messagingService.sendInstruction(new TicketTakeInstruction(UUID.randomUUID(), ticketUUID));
+                consumedSet.add(ticket);
+            }
+            return value;
+        } catch (Throwable e) {
+            LOGGER.log(Level.SEVERE, "Could not consume ticket " + ticket.getClass() + " (" + ticket + ")", e);
+            return true;
         }
-        return value;
     }
 }

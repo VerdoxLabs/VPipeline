@@ -3,6 +3,7 @@ package de.verdox.vpipeline.api.ticket;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.logging.Logger;
 
 /**
  * Used to send {@link Ticket}s to the network.
@@ -10,6 +11,7 @@ import java.util.function.Supplier;
  */
 
 public interface TicketPropagator {
+    Logger LOGGER = Logger.getLogger(TicketPropagator.class.getSimpleName());
     /**
      * Used to issue a new ticket to the network.
      *
