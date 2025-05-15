@@ -17,8 +17,11 @@ import org.jetbrains.annotations.NotNull;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 public interface DataSynchronizer extends SystemPart, Connection {
+    Logger LOGGER = Logger.getLogger(DataSynchronizer.class.getName());
+
     Serializer<DataBlock> DATA_BLOCK_SERIALIZER = Serializer.Types.create("datablock", DataBlock.class)
             .type("update", UpdateDataBlock.SERIALIZER)
             .type("creation", CreationDataBlock.SERIALIZER)

@@ -20,6 +20,7 @@ import org.redisson.api.listener.MessageListener;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public class RedisDataDataSynchronizer implements DataSynchronizer {
     private RTopic dataTopic;
@@ -85,12 +86,17 @@ public class RedisDataDataSynchronizer implements DataSynchronizer {
         this.messageListener = (channel, jsonString) -> {
             JsonElement jsonElement = JsonParser.parseString(jsonString);
             JsonSerializerContext context = new JsonSerializerContext();
-            DataBlock dataBlock = DataSynchronizer.DATA_BLOCK_SERIALIZER.deserialize(context.toElement(jsonElement));
 
-            if (dataBlock.getSenderUUID().equals(pipeline.getNetworkParticipant().getUUID()))
-                return;
-            dataBlock.process(dataClass, pipeline);
-            NetworkLogger.debug("["+pipeline.getNetworkParticipant().getUUID()+"] Received and processed dataBlock "+dataBlock);
+            try {
+                DataBlock dataBlock = DataSynchronizer.DATA_BLOCK_SERIALIZER.deserialize(context.toElement(jsonElement));
+
+                if (dataBlock.getSenderUUID().equals(pipeline.getNetworkParticipant().getUUID()))
+                    return;
+                dataBlock.process(dataClass, pipeline);
+                NetworkLogger.debug("["+pipeline.getNetworkParticipant().getUUID()+"] Received and processed dataBlock "+dataBlock);
+            } catch (SerializationException e) {
+                LOGGER.log(Level.SEVERE, "Could not process data block", e);
+            }
         };
         dataTopic.addListener(String.class, messageListener);
         if (AnnotationResolver.getDataProperties(dataClass).debugMode())
