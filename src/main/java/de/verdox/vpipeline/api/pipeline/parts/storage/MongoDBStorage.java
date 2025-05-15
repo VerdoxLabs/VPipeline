@@ -12,8 +12,12 @@ import de.verdox.vpipeline.api.modules.AttachedPipeline;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.parts.GlobalStorage;
 import de.verdox.vserializer.SerializableField;
+import de.verdox.vserializer.bson.BsonSerializerContext;
+import de.verdox.vserializer.generic.SerializationElement;
 import de.verdox.vserializer.generic.Serializer;
 import de.verdox.vserializer.generic.SerializerBuilder;
+import de.verdox.vserializer.json.JsonSerializationElement;
+import de.verdox.vserializer.json.JsonSerializerContext;
 import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
 
@@ -34,6 +38,7 @@ public class MongoDBStorage implements GlobalStorage, Connection {
                     MongoDBStorage::new
             )
             .build();
+    public static final JsonSerializerContext JSON_SERIALIZER_CONTEXT = new JsonSerializerContext();
 
     private MongoClient mongoClient;
     private MongoDatabase mongoDatabase;
@@ -44,6 +49,7 @@ public class MongoDBStorage implements GlobalStorage, Connection {
     private final String password;
     private final AttachedPipeline attachedPipeline;
     private final String url;
+    private final BsonSerializerContext bsonSerializerContext = new BsonSerializerContext();
     //private final CodecRegistry codecRegistry;
 
     public MongoDBStorage(String host, String database, int port, String user, String password, String url) {
@@ -79,7 +85,9 @@ public class MongoDBStorage implements GlobalStorage, Connection {
             mongoDBData = filter;
 
         mongoDBData.remove("_id");
-        return JsonParser.parseString(attachedPipeline.getGson().toJson(mongoDBData));
+
+        SerializationElement bsonElement = bsonSerializerContext.toElement(attachedPipeline.getGson().toJsonTree(mongoDBData));
+        return ((JsonSerializationElement) JSON_SERIALIZER_CONTEXT.convert(bsonElement, true)).getJsonElement();
     }
 
     @Override
@@ -105,10 +113,10 @@ public class MongoDBStorage implements GlobalStorage, Connection {
 
         if (collection.find(filter).first() == null) {
             Document newData = new Document("objectUUID", objectUUID.toString());
-            newData.putAll(Document.parse(attachedPipeline.getGson().toJson(dataToSave)));
+            newData.putAll(Document.parse(attachedPipeline.getGson().toJson(bsonSerializerContext.toElement(dataToSave).getJsonElement())));
             collection.insertOne(newData);
         } else {
-            Document newData = Document.parse(attachedPipeline.getGson().toJson(dataToSave));
+            Document newData = Document.parse(attachedPipeline.getGson().toJson(bsonSerializerContext.toElement(dataToSave).getJsonElement()));
             Document updateFunc = new Document("$set", newData);
             collection.updateOne(filter, updateFunc);
         }
