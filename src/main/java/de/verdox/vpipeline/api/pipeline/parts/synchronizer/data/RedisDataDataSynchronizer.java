@@ -10,6 +10,7 @@ import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.DataSynchronizer;
 import de.verdox.vpipeline.api.util.AnnotationResolver;
 import de.verdox.vpipeline.impl.util.RedisConnection;
+import de.verdox.vserializer.exception.SerializationException;
 import de.verdox.vserializer.generic.SerializationContext;
 import de.verdox.vserializer.json.JsonSerializationElement;
 import de.verdox.vserializer.json.JsonSerializerContext;
@@ -48,8 +49,13 @@ public class RedisDataDataSynchronizer implements DataSynchronizer {
 
     @Override
     public int sendDataBlockToNetwork(DataBlock dataBlock) {
-        String serializedDataBlock = ((JsonSerializationElement) DataSynchronizer.DATA_BLOCK_SERIALIZER.serialize(new JsonSerializerContext(), dataBlock)).getJsonElement().toString();
-        return (int) dataTopic.publish(serializedDataBlock);
+        String serializedDataBlock;
+        try {
+            serializedDataBlock = ((JsonSerializationElement) DataSynchronizer.DATA_BLOCK_SERIALIZER.serialize(new JsonSerializerContext(), dataBlock)).getJsonElement().toString();
+            return (int) dataTopic.publish(serializedDataBlock);
+        } catch (SerializationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
