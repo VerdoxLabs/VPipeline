@@ -111,13 +111,16 @@ public class MongoDBStorage implements GlobalStorage, Connection {
 
         MongoCollection<Document> collection = getMongoStorage(dataClass, getSuffix(dataClass));
 
+        String json = attachedPipeline.getGson().toJson(bsonSerializerContext.toElement(dataToSave).getJsonElement());
+
+        Document data = Document.parse(json);
+
         if (collection.find(filter).first() == null) {
             Document newData = new Document("objectUUID", objectUUID.toString());
-            newData.putAll(Document.parse(attachedPipeline.getGson().toJson(bsonSerializerContext.toElement(dataToSave).getJsonElement())));
+            newData.putAll(data);
             collection.insertOne(newData);
         } else {
-            Document newData = Document.parse(attachedPipeline.getGson().toJson(bsonSerializerContext.toElement(dataToSave).getJsonElement()));
-            Document updateFunc = new Document("$set", newData);
+            Document updateFunc = new Document("$set", data);
             collection.updateOne(filter, updateFunc);
         }
     }
