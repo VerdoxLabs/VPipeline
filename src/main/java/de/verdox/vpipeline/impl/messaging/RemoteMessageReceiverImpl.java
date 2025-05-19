@@ -45,4 +45,12 @@ public class RemoteMessageReceiverImpl implements RemoteMessageReceiver {
     public int hashCode() {
         return Objects.hash(getUuid());
     }
+
+    @Override
+    public String toString() {
+        return "RemoteMessageReceiver{" + "uuid=" + uuid +
+                ", identifier='" + identifier + '\'' +
+                ", lastKeepAlive=" + lastKeepAlive +
+                '}';
+    }
 }

@@ -42,4 +42,11 @@ public class RemoteParticipantImpl extends PipelineData implements RemotePartici
     public <T> T getData(Class<? extends T> type, String key) {
         return type.cast(cachedData.getOrDefault(key, null));
     }
+
+    @Override
+    public String toString() {
+        return "RemoteParticipantImpl{" + "uuid='" + getAttachedPipeline().getAttachedPipeline().getNetworkParticipant().getUUID() + '\'' +
+                ", identifier='" + identifier + '\'' +
+                '}';
+    }
 }
